@@ -8,5 +8,4 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
 	local entname = viewtrace.Entity:GetName()
 
 	if string.Left(entname, 15) != "chicagoRP_shop_" then return end -- EZ anti-exploit
-
-end
+end)
