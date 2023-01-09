@@ -296,7 +296,7 @@ local function ExpandedItemPanel(itemname)
     OpenItemFrame = itemFrame
 
     return itemFrame
-end)
+end
 
 local function CreateItemPanel(parent, itemname, w, h) -- how do we do args aka (...)???
     if itemname == nil or parent == nil then return end
@@ -377,7 +377,77 @@ local function CartItemPanel(parent, itemname, quanity, x, y, w, h)
     return cartItem
 end
 
-local function CartViewPanel(parent, x, y, w, h) -- scrollpanel, we also need final price tally panel and SEND CART button
+local function priceCalculationPanel(parent, quanity, x, y, w, h) -- how do we fetch item prices?
+    if parent == nil then return end
+
+    local priceCalcPanel = vgui.Create("DPanel", parent)
+    priceCalcPanel:SetSize(w, h)
+    priceCalcPanel:SetPos(x, y)
+
+    local total = nil
+    local discount = nil -- how do we fetch the discounts all items in the cart?
+    local subtotal = nil
+
+    function priceCalcPanel:Paint(w, h)
+        draw.DrawText("Total: $" .. total, "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT) -- original total
+        draw.DrawText("Discount (-" .. discountpercent .. "%): -$" .. discount, "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT) -- discounts
+        draw.DrawText("Subtotal: " .. subtotal, "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT) -- final total
+
+        return nil
+    end
+
+    return priceCalcPanel
+end
+
+local function PurchaseButton(parent, x, y, w, h)
+    local purButton = vgui.Create("DButton", parent)
+    purButton:SetSize(w, h)
+    purButton:SetPos(x, y)
+    purButton:SetText("PURCHASE")
+
+    function purButton:Paint(w, h)
+        draw.RoundedBox(4, 0, 0, w, h, Color(20, 20, 210, 220))
+        draw.DrawText(self:GetText(), "chicagoRP_NPCShop", 0, 0, whitecolor, TEXT_ALIGN_LEFT)
+
+        return nil
+    end
+
+    function purButton:DoClick()
+        if table.IsEmpty(carttable) then return end
+
+        local JSONTable = util.TableToJSON(carttable)
+        local compTable = util.Compress(JSONTable)
+        local bytecount = #compTable
+
+        net.Start("chicagoRP_NPCShop_sendcart")
+        net.WriteUInt(bytecount, 16)
+        net.WriteData(compTable, bytecount)
+        net.SendToServer()
+
+        carttable = {} -- or table.Empty(carttable)
+    end
+
+    return purButton
+end
+
+local function CartViewPanel(parent, x, y, w, h)
+    local cartScrollPanel = vgui.Create("DScrollPanel", parent)
+    cartScrollPanel:SetPos(x, y)
+    cartScrollPanel:SetSize(w, h)
+
+    function cartScrollPanel:Paint(w, h)
+        return nil
+    end
+
+    local cartScrollBar = cartScrollPanel:GetVBar()
+    function cartScrollBar:Paint(w, h)
+        draw.RoundedBox(0, 0, 0, w, h, Color(42, 40, 35, 66))
+    end
+    function cartScrollBar.btnGrip:Paint(w, h)
+        draw.RoundedBox(0, 0, 0, w, h, Color(76, 76, 74, 150))
+    end
+
+    return cartScrollPanel
 end
 
 local function SearchBox(parent, x, y, w, h)
@@ -438,10 +508,10 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
     if !IsValid(ply) or !ply:Alive() or !ply:OnGround() or ply:InVehicle() then return end
     if !enabled:GetBool() then return end
 
-    local viewtrace = ply:GetEyeTraceNoCursor()
-    local entname = viewtrace.Entity:GetName()
+    -- local viewtrace = ply:GetEyeTraceNoCursor()
+    -- local entname = viewtrace.Entity:GetName()
 
-    if string.Left(entname, 15) != "chicagoRP_shop_" then return end -- more protection because god knows we'll need it
+    -- if string.Left(entname, 15) != "chicagoRP_shop_" then return end -- more protection because god knows we'll need it
 
     local closebool = net.ReadBool()
 
@@ -512,7 +582,7 @@ print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
 -- filter panel code (do dcombobox and dcheckbox)
--- create cart panel
+-- add cart panel to frame
 -- do net code for cart receive
 -- serverside local tables
 -- item scroll panel create layout code
