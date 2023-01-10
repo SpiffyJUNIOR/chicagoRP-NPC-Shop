@@ -51,13 +51,19 @@ chicagoRP_NPCShop.entities = {
 chicagoRP_NPCShop.armor = {
     {
         ent = "ezjmodlighthelmet",
-        infotext = "The light helmet is a weak but plentiful and cheap method of protecting yo' neck.",
+        infotext = "The light helmet is a weak but plentiful and cheap method of protecting yo' head.",
+        price = 50,
         protection = "level_1",
+        quanity = 20,
+        restock = 300,
         slot = "head"
     }, {
         ent = "ezjmodheavychest",
-        infotext = "For when you need the best protection possible, or just wanna feel like a badass; The Heavy chest armor is your premier choice.",
+        infotext = "For when you need the best protection possible, or just wanna feel like a badass; heavy chest armor is your premier choice.",
+        price = 770,
         protection = "level_5",
+        quanity = 5,
+        restock = 600,
         slot = "head"
     }
 }

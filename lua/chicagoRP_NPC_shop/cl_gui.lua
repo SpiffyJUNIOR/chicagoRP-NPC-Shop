@@ -2,6 +2,8 @@ local HideHUD = false
 local OpenMotherFrame = nil
 local OpenItemFrame = nil
 local carttable = {}
+local filtertable = {}
+local discounttable = nil
 local Dynamic = 0
 local whitecolor = Color(255, 255, 255, 255)
 local blackcolor = Color(0, 0, 0, 255)
@@ -454,6 +456,7 @@ local function SearchBox(parent, x, y, w, h)
     local textEntry = vgui.Create("DTextEntry", parent)
     textEntry:SetSize(w, h)
     textEntry:SetPos(x, y)
+    textEntry:SetText("Search...")
 
     function textEntry:Paint(w, h)
         draw.RoundedBox(2, 0, 0, w, h, graycolor)
@@ -462,27 +465,47 @@ local function SearchBox(parent, x, y, w, h)
         return nil
     end
 
-    function textEntry:OnKeyCodeTyped(keyCode)
+    function textEntry:OnValueChange(value)
         local newtext = self:GetText()
 
         print(newtext)
-        print(keyCode)
+        print(value)
     end
 
     return textEntry
 end
 
-local function FilterCheckBox(parent, x, y, w, h)
-    local checkBox = vgui.Create("DCheckBox", parent)
+local function FilterCheckBox(parent, text, x, y, w, h) -- how do we do togglable options?
+    local checkBox = vgui.Create("DCheckBoxLabel", parent)
     checkBox:SetSize(w, h)
     checkBox:SetPos(x, y)
+    checkBox:SetText(text)
+    checkBox:SetValue(false)
+    checkBox:SetTextInset(32, 0)
 
-    -- function checkBox:Paint(w, h)
-    --     draw.RoundedBox(2, 0, 0, w, h, graycolor)
-    --     draw.DrawText(self:GetText(), "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
+    function checkBox:Paint(w, h)
+        draw.RoundedBox(2, 0, 0, w, h, graycolor)
+        draw.DrawText("Armor Levels", "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
 
-    --     return nil
-    -- end
+        return nil
+    end
+
+    function checkBox:OnMenuOpened())
+        for i, _ in ipairs(self:GetChildren()) do
+            local opt = self.Menu:GetChild(i)
+            function opt:Paint(_w, _h)
+                draw.DrawText("FUCKING FED...", "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
+                draw.RoundedBox(2, 0, 0, _w, _h, graycolor)
+            end
+
+            opt.oPerformLayout = opt.PerformLayout
+            function opt:PerformLayout(__w, __h)
+                self:oPerformLayout(__w, __h)
+                self:SetSize(w, 40)
+                self:SetTextInset(0, 0)
+            end
+        end
+    end
 
     return checkBox
 end
@@ -502,6 +525,22 @@ local function FilterComboBox(parent, x, y, w, h)
     return dropDownPanel
 end
 
+local function GetDiscountTable()
+    net.Start("chicagoRP_NPCShop_senddiscount")
+    net.SendToServer()
+end
+
+net.Receive("chicagoRP_NPCShop_getdiscount", function()
+    local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
+    local compTable = net.ReadData(bytecount) -- Gets back our compressed message
+    local decompTable = util.Decompress(compTable)
+    local finalTable = util.JSONToTable(decompTable)
+
+    if istable(finalTable) then 
+        discounttable = finalTable
+    end
+end)
+
 net.Receive("chicagoRP_NPCShop_GUI", function()
     local ply = LocalPlayer()
     if IsValid(OpenMotherFrame) then OpenMotherFrame:Close() return end
@@ -511,7 +550,7 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
     -- local viewtrace = ply:GetEyeTraceNoCursor()
     -- local entname = viewtrace.Entity:GetName()
 
-    -- if string.Left(entname, 15) != "chicagoRP_shop_" then return end -- more protection because god knows we'll need it
+    -- if string.Left(entname, 15) != "chicagoRP_shop_" or !viewtrace.Entity:IsNPC() then return end -- more protection because god knows we'll need it
 
     local closebool = net.ReadBool()
 
@@ -581,13 +620,15 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- filter panel code (do dcombobox and dcheckbox)
--- add cart panel to frame
--- do net code for cart receive
--- serverside local tables
--- item scroll panel create layout code
--- change quanity text when quanity is updated (callback?)
--- getdiscount function
+-- add toggle options to dcombobox (idk how)
+-- add cart panel to frame (ez but tedious)
+-- add search and filter panel to frame (parent to scrollpanel or parent to dframe to manage independently)
+-- add smooth scroll (https://github.com/Facepunch/garrysmod/pull/1764)
+-- filter table calc code
+-- item scroll panel create/perform layout code
+-- create serverside discount table calculation code
+-- GetItemCategory function or send item category with net message
+-- uodate clientside quanity text when serverside quanity table is updated (table callback?)
 -- add homepage (just restocked, most popular, discounts)
 -- add mLogs and Billy's Logs support
 
