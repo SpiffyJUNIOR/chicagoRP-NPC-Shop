@@ -40,6 +40,62 @@ local function BlurBackground(panel)
     Dynamic = math.Clamp(Dynamic + (1 / FrameRate) * 7, 0, 1)
 end
 
+local function SmoothScrollBar(vbar) -- why
+    vbar.nInit = vbar.Init
+    function vbar:Init()
+        self:nInit()
+        self.DeltaBuffer = 0
+    end
+
+    vbar.nSetUp = vbar.SetUp
+    function vbar:SetUp(_barsize_, _canvassize_)
+        self:nSetUp(_barsize_, _canvassize_)
+        self.BarSize = _barsize_
+        self.CanvasSize = _canvassize_ - _barsize_
+        if (1 > self.CanvasSize) then self.CanvasSize = 1 end
+    end
+
+    vbar.nAddScroll = vbar.AddScroll
+    function vbar:AddScroll(dlta)
+        self:nAddScroll(dlta)
+
+        self.DeltaBuffer = OldScroll + (dlta * (self:GetSmoothScroll() && 75 || 50))
+        if (self.DeltaBuffer < -self.BarSize) then self.DeltaBuffer = -self.BarSize end
+        if (self.DeltaBuffer > (self.CanvasSize + self.BarSize)) then self.DeltaBuffer = self.CanvasSize + self.BarSize end
+    end
+
+    vbar.nSetScroll = vbar.SetScroll
+    function vbar:SetScroll(scrll)
+        self:nSetScroll(scrll)
+
+        if (scrll > self.CanvasSize) then scrll = self.CanvasSize end
+        if (0 > scrll ) then scrll = 0 end
+        self.Scroll = scrll
+    end
+
+    function vbar:AnimateTo(scrll, length, delay, ease)
+        self.DeltaBuffer = scrll
+    end
+
+    function vbar:GetDeltaBuffer()
+        if (self.Dragging) then self.DeltaBuffer = self:GetScroll() end
+        if (!self.Enabled) then self.DeltaBuffer = 0 end
+        return self.DeltaBuffer
+    end
+
+    vbar.nThink = vbar.Think
+    function vbar:Think()
+        self:nThink()
+        if (!self.Enabled) then return end
+
+        local FrameRate = (self.CanvasSize / 10) > math.abs(self:GetDeltaBuffer() - self:GetScroll()) && 2 || 5
+        self:SetScroll(Lerp(FrameTime() * (self:GetSmoothScroll() && FrameRate || 10), self:GetScroll(), self:GetDeltaBuffer()))
+
+        if (self.CanvasSize > self.DeltaBuffer && self.Scroll == self.CanvasSize) then self.DeltaBuffer = self.CanvasSize end
+        if (0 > self.DeltaBuffer && self.Scroll == 0) then self.DeltaBuffer = 0 end
+    end
+end
+
 surface.CreateFont("chicagoRP_NPCShop", {
     font = "Roboto",
     size = 36,
@@ -54,26 +110,6 @@ hook.Add("HUDShouldDraw", "chicagoRP_NPCShop_HideHUD", function()
         return false
     end
 end)
-
-local function CategoryPanel(parent, x, y, w, h)
-    local categoryScrollPanel = vgui.Create("DScrollPanel", parent)
-    categoryScrollPanel:SetPos(x, y)
-    categoryScrollPanel:SetSize(w, h)
-
-    function categoryScrollPanel:Paint(w, h)
-        return nil
-    end
-
-    local categoryScrollBar = categoryScrollPanel:GetVBar()
-    function categoryScrollBar:Paint(w, h)
-        draw.RoundedBox(0, 0, 0, w, h, Color(42, 40, 35, 66))
-    end
-    function categoryScrollBar.btnGrip:Paint(w, h)
-        draw.RoundedBox(0, 0, 0, w, h, Color(76, 76, 74, 150))
-    end
-
-    return categoryScrollPanel
-end
 
 local function CategoryButton(parent, index, w, h)
     local catButton = parent:Add("DButton")
@@ -101,6 +137,28 @@ local function CategoryButton(parent, index, w, h)
     end
 
     return catButton
+end
+
+local function CategoryPanel(parent, x, y, w, h)
+    local categoryScrollPanel = vgui.Create("DScrollPanel", parent)
+    categoryScrollPanel:SetPos(x, y)
+    categoryScrollPanel:SetSize(w, h)
+
+    function categoryScrollPanel:Paint(w, h)
+        return nil
+    end
+
+    local categoryScrollBar = categoryScrollPanel:GetVBar()
+    function categoryScrollBar:Paint(w, h)
+        draw.RoundedBox(0, 0, 0, w, h, Color(42, 40, 35, 66))
+    end
+    function categoryScrollBar.btnGrip:Paint(w, h)
+        draw.RoundedBox(0, 0, 0, w, h, Color(76, 76, 74, 150))
+    end
+
+    SmoothScrollBar(categoryScrollBar)
+
+    return categoryScrollPanel
 end
 
 local function QuanitySelector(parent, x, y, w, h)
@@ -146,6 +204,52 @@ local function AddCartButton(parent, x, y, w, h)
     return cartButton
 end
 
+local function CreateItemPanel(parent, itemname, w, h) -- how do we do args aka (...)???
+    if itemname == nil or parent == nil then return end
+
+    -- local itemButton = vgui.Create("DButton", parent)
+    local itemButton = parent:Add("DButton")
+    itemButton:Dock(TOP)
+    itemButton:DockMargin(0, 10, 30, 30)
+    -- itemButton:SetSize(w, h)
+    itemButton:SetPos(x, y)
+
+    function itemButton:Paint(w, h)
+        draw.RoundedBox(4, 0, 0, w, h, graycolor)
+        -- surface.SetMaterial(nil) -- how do we get spawnicon?
+        surface.DrawTexturedRectRotated(20, y, w, 64, 0)
+
+        return true
+    end
+
+    function itemButton:DoClick()
+        local expandedPanel = ExpandedItemPanel(itemname)
+    end
+
+    local cartButton = AddCartButton(parent, itemname, x, y, w, h)
+    local quanitySel = QuanitySelector(parent, 200, 0, 40, 20)
+
+    function quanitySel:OnValueChanged(val)
+        print("Quanity: " .. val)
+        cartButton.value = val
+    end
+
+    function cartButton:DoClick()
+        local quanity = self.value -- how do we do if quanity > server_quanity then func return end?
+        local finaltable = {itemname, quanity}
+
+        for _, v in ipairs(carttable) do
+            if v.itemname == itemname then
+                v.quanity = v.quanity + quanity
+            else
+                table.insert(carttable, finaltable)
+            end
+        end
+    end
+
+    return itemButton
+end
+
 local function ItemScrollPanel(parent, x, y, w, h)
     local itemScrPanel = vgui.Create("DScrollPanel", parent)
     itemScrPanel:SetPos(x, y)
@@ -163,7 +267,122 @@ local function ItemScrollPanel(parent, x, y, w, h)
         draw.RoundedBox(0, 0, 0, w, h, Color(76, 76, 74, 150))
     end
 
+    SmoothScrollBar(itemScrollBar)
+
     return itemScrPanel
+end
+
+local function SearchBox(parent, x, y, w, h)
+    local textEntry = vgui.Create("DTextEntry", parent)
+    textEntry:SetSize(w, h)
+    textEntry:SetPos(x, y)
+    textEntry:SetText("Search...")
+
+    function textEntry:Paint(w, h)
+        draw.RoundedBox(2, 0, 0, w, h, graycolor)
+        draw.DrawText(self:GetText(), "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
+
+        return nil
+    end
+
+    function textEntry:OnValueChange(value)
+        local newtext = self:GetText()
+
+        print(newtext)
+        print(value)
+    end
+
+    return textEntry
+end
+
+local function FilterCheckBox(parent, text, x, y, w, h) -- how do we do togglable options?
+    local checkBox = vgui.Create("DCheckBoxLabel", parent)
+    checkBox:SetSize(w, h)
+    checkBox:SetPos(x, y)
+    checkBox:SetText(text)
+    checkBox:SetValue(false)
+    checkBox:SetTextInset(32, 0)
+
+    function checkBox:Paint(w, h)
+        draw.RoundedBox(2, 0, 0, w, h, graycolor)
+        draw.DrawText("Armor Levels", "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
+
+        return nil
+    end
+
+    function checkBox:OnMenuOpened())
+        for i, _ in ipairs(self:GetChildren()) do
+            local opt = self.Menu:GetChild(i)
+            function opt:Paint(_w, _h)
+                draw.DrawText("FUCKING FED...", "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
+                draw.RoundedBox(2, 0, 0, _w, _h, graycolor)
+            end
+
+            opt.oPerformLayout = opt.PerformLayout
+            function opt:PerformLayout(__w, __h)
+                self:oPerformLayout(__w, __h)
+                self:SetSize(w, 40)
+                self:SetTextInset(0, 0)
+            end
+        end
+    end
+
+    return checkBox
+end
+
+local function FilterComboBox(parent, x, y, w, h)
+    local dropDownPanel = vgui.Create("DComboBox", parent)
+    dropDownPanel:SetSize(w, h)
+    dropDownPanel:SetPos(x, y)
+
+    -- function dropDownPanel:Paint(w, h)
+    --     draw.RoundedBox(2, 0, 0, w, h, graycolor)
+    --     draw.DrawText(self:GetText(), "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
+
+    --     return nil
+    -- end
+
+    return dropDownPanel
+end
+
+local function FilterBox(parent, x, y, w, h)
+    local filterPanel = vgui.Create("DPanel", parent)
+    filterPanel:SetSize(w, h)
+    filterPanel:SetPos(x, y)
+
+    function filterPanel:Paint(w, h)
+        draw.RoundedBox(2, 0, 0, w, h, graycolor)
+
+        return nil
+    end
+
+    return filterPanel
+end
+
+local function ScrollingTextPanel(parent, x, y, w, h, text)
+    if isempty(text) then text = "Text is empty!" end
+
+    local textScrollPanel = vgui.Create("DScrollPanel", parent)
+    textScrollPanel:SetPos(x, y)
+    textScrollPanel:SetSize(w, h)
+
+    function textScrollPanel:Paint(w, h)
+        return nil
+    end
+
+    local textScrollBar = textScrollPanel:GetVBar()
+    function textScrollBar:Paint(w, h)
+        draw.RoundedBox(0, 0, 0, w, h, Color(42, 40, 35, 66))
+    end
+    function textScrollBar.btnGrip:Paint(w, h)
+        draw.RoundedBox(0, 0, 0, w, h, Color(76, 76, 74, 150))
+    end
+
+    SmoothScrollBar(textScrollBar)
+
+    -- how do we do textwrap and line breaks?
+
+    return ScrollingTextPanel
 end
 
 local function FancyModelPanel(parent, model, x, y, w, h, lightcolor)
@@ -194,30 +413,6 @@ local function FancyModelPanel(parent, model, x, y, w, h, lightcolor)
     function modelPanel:LayoutEntity(Entity) return end -- how do we make cam movement smoothened?
 
     return modelPanel
-end
-
-local function ScrollingTextPanel(parent, x, y, w, h, text)
-    if isempty(text) then text = "Text is empty!" end
-
-    local textScrollPanel = vgui.Create("DScrollPanel", parent)
-    textScrollPanel:SetPos(x, y)
-    textScrollPanel:SetSize(w, h)
-
-    function textScrollPanel:Paint(w, h)
-        return nil
-    end
-
-    local textScrollBar = textScrollPanel:GetVBar()
-    function textScrollBar:Paint(w, h)
-        draw.RoundedBox(0, 0, 0, w, h, Color(42, 40, 35, 66))
-    end
-    function textScrollBar.btnGrip:Paint(w, h)
-        draw.RoundedBox(0, 0, 0, w, h, Color(76, 76, 74, 150))
-    end
-
-    -- how do we do textwrap and line breaks?
-
-    return ScrollingTextPanel
 end
 
 local function ExpandedItemPanel(itemname)
@@ -300,50 +495,22 @@ local function ExpandedItemPanel(itemname)
     return itemFrame
 end
 
-local function CreateItemPanel(parent, itemname, w, h) -- how do we do args aka (...)???
+local function CartItemPanel(parent, itemname, quanity, x, y, w, h)
     if itemname == nil or parent == nil then return end
 
-    -- local itemButton = vgui.Create("DButton", parent)
-    local itemButton = parent:Add("DButton")
-    itemButton:Dock(TOP)
-    itemButton:DockMargin(0, 10, 30, 30)
-    -- itemButton:SetSize(w, h)
-    itemButton:SetPos(x, y)
+    local cartItem = parent:Add("DPanel")
+    cartItem:Dock(TOP)
+    cartItem:DockMargin(0, 0, 0, 10)
 
-    function itemButton:Paint(w, h)
-        draw.RoundedBox(4, 0, 0, w, h, graycolor)
+    function cartItem:Paint(w, h)
+        draw.DrawText(itemname, "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
         -- surface.SetMaterial(nil) -- how do we get spawnicon?
-        surface.DrawTexturedRectRotated(20, y, w, 64, 0)
+        surface.DrawTexturedRectRotated(0, 0, w, h, 0)
 
-        return true
+        return nil
     end
 
-    function itemButton:DoClick()
-        local expandedPanel = ExpandedItemPanel(itemname)
-    end
-
-    local cartButton = AddCartButton(parent, itemname, x, y, w, h)
-    local quanitySel = QuanitySelector(parent, 200, 0, 40, 20)
-
-    function quanitySel:OnValueChanged(val)
-        print("Quanity: " .. val)
-        cartButton.value = val
-    end
-
-    function cartButton:DoClick()
-        local quanity = self.value -- how do we do if quanity > server_quanity then func return end?
-        local finaltable = {itemname, quanity}
-
-        for _, v in ipairs(carttable) do
-            if v.itemname == itemname then
-                v.quanity = v.quanity + quanity
-            else
-                table.insert(carttable, finaltable)
-            end
-        end
-    end
-
-    return itemButton
+    return cartItem
 end
 
 local function UpdateQuanityButton(parent, x, y, w, h)
@@ -359,24 +526,6 @@ local function UpdateQuanityButton(parent, x, y, w, h)
     end
 
     return updQuanityButton
-end
-
-local function CartItemPanel(parent, itemname, quanity, x, y, w, h)
-    if itemname == nil or parent == nil then return end
-
-    local cartItem = vgui.Create("DPanel", parent)
-    cartItem:SetSize(w, h)
-    cartItem:SetPos(x, y)
-
-    function cartItem:Paint(w, h)
-        draw.DrawText(itemname, "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
-        -- surface.SetMaterial(nil) -- how do we get spawnicon?
-        surface.DrawTexturedRectRotated(0, 0, w, h, 0)
-
-        return nil
-    end
-
-    return cartItem
 end
 
 local function priceCalculationPanel(parent, quanity, x, y, w, h) -- how do we fetch item prices?
@@ -449,80 +598,9 @@ local function CartViewPanel(parent, x, y, w, h)
         draw.RoundedBox(0, 0, 0, w, h, Color(76, 76, 74, 150))
     end
 
+    SmoothScrollBar(cartScrollBar)
+
     return cartScrollPanel
-end
-
-local function SearchBox(parent, x, y, w, h)
-    local textEntry = vgui.Create("DTextEntry", parent)
-    textEntry:SetSize(w, h)
-    textEntry:SetPos(x, y)
-    textEntry:SetText("Search...")
-
-    function textEntry:Paint(w, h)
-        draw.RoundedBox(2, 0, 0, w, h, graycolor)
-        draw.DrawText(self:GetText(), "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
-
-        return nil
-    end
-
-    function textEntry:OnValueChange(value)
-        local newtext = self:GetText()
-
-        print(newtext)
-        print(value)
-    end
-
-    return textEntry
-end
-
-local function FilterCheckBox(parent, text, x, y, w, h) -- how do we do togglable options?
-    local checkBox = vgui.Create("DCheckBoxLabel", parent)
-    checkBox:SetSize(w, h)
-    checkBox:SetPos(x, y)
-    checkBox:SetText(text)
-    checkBox:SetValue(false)
-    checkBox:SetTextInset(32, 0)
-
-    function checkBox:Paint(w, h)
-        draw.RoundedBox(2, 0, 0, w, h, graycolor)
-        draw.DrawText("Armor Levels", "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
-
-        return nil
-    end
-
-    function checkBox:OnMenuOpened())
-        for i, _ in ipairs(self:GetChildren()) do
-            local opt = self.Menu:GetChild(i)
-            function opt:Paint(_w, _h)
-                draw.DrawText("FUCKING FED...", "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
-                draw.RoundedBox(2, 0, 0, _w, _h, graycolor)
-            end
-
-            opt.oPerformLayout = opt.PerformLayout
-            function opt:PerformLayout(__w, __h)
-                self:oPerformLayout(__w, __h)
-                self:SetSize(w, 40)
-                self:SetTextInset(0, 0)
-            end
-        end
-    end
-
-    return checkBox
-end
-
-local function FilterComboBox(parent, x, y, w, h)
-    local dropDownPanel = vgui.Create("DComboBox", parent)
-    dropDownPanel:SetSize(w, h)
-    dropDownPanel:SetPos(x, y)
-
-    -- function dropDownPanel:Paint(w, h)
-    --     draw.RoundedBox(2, 0, 0, w, h, graycolor)
-    --     draw.DrawText(self:GetText(), "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
-
-    --     return nil
-    -- end
-
-    return dropDownPanel
 end
 
 local function GetDiscountTable()
@@ -559,7 +637,7 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
     local screenwidth = ScrW()
     local screenheight = ScrH()
     local motherFrame = vgui.Create("DFrame")
-    motherFrame:SetSize(screenwidth / 1.2, screenheight / 1.2)
+    motherFrame:SetSize(screenwidth / 1.2, screenheight / 1.2) -- 1600/900
     motherFrame:SetVisible(true)
     motherFrame:SetDraggable(true)
     motherFrame:ShowCloseButton(true)
@@ -597,7 +675,12 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
         -- BlurBackground(self)
     end
 
-    local catScrollPanel = CategoryPanel(motherFrame, 0, 0, 100, screenheight)
+    local catScrollPanel = CategoryPanel(motherFrame, 0, 0, 100, screenheight / 1.2)
+    local cartScrollPanel = CartViewPanel(motherFrame, 700, 0, 200, screenheight / 1.2)
+    local searcherPanel = SearchBox(motherFrame, 225, 45, 350, 20)
+    local filterPanel = FilterBox(motherFrame, 575, 45, 50, 50)
+
+    local browsingPanels = {searcherPanel, filterPanel}
 
     for k, v in ipairs(chicagoRP_NPCShop.categories) do
         local catButton = CategoryButton(catScrollPanel, k, w, h)
@@ -621,20 +704,15 @@ print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
 -- add toggle options to dcombobox (idk how)
--- add cart panel to frame (ez but tedious)
--- add search and filter panel to frame (parent to scrollpanel or parent to dframe to manage independently)
--- add smooth scroll (https://github.com/Facepunch/garrysmod/pull/1764)
--- filter table calc code
 -- item scroll panel create/perform layout code
+-- filter table calc code + filter create/perform layout code
+-- cart panel performlayout code
 -- create serverside discount table calculation code
 -- GetItemCategory function or send item category with net message
 -- uodate clientside quanity text when serverside quanity table is updated (table callback?)
+-- how to (securely) send NPC table to GUI?
 -- add homepage (just restocked, most popular, discounts)
 -- add mLogs and Billy's Logs support
-
-
-
-
 
 
 

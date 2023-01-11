@@ -131,7 +131,12 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
 	ply:addMoney(-subtotal)
 end)
 
-
+concommand.Add("chicagoRP_NPCShop", function(ply) -- how we close/open this based on bind being held?
+    if !IsValid(ply) then return end
+    net.Start("chicagoRP_NPCShop_GUI")
+    net.WriteBool(true)
+    net.Send(ply)
+end)
 
 
 
