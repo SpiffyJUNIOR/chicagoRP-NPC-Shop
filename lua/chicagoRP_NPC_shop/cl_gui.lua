@@ -1,5 +1,7 @@
 local HideHUD = false
 local OpenMotherFrame = nil
+local OpenShopPanel = nil
+local OpenCartPanel = nil
 local OpenItemFrame = nil
 local carttable = {}
 local filtertable = {}
@@ -14,6 +16,19 @@ local purplecolor = Color(200, 200, 30, 255) -- probably not purple
 local reddebug = Color(200, 10, 10, 150)
 local enabled = GetConVar("cl_chicagoRP_NPCShop_enable")
 local blurMat = Material("pp/blurscreen")
+local meta = FindMetaTable("Panel")
+
+-- dlabel think resizing every frame so we make it only one time
+function meta:SizeToContentsY(addval)
+    if self.m_bYSized then return end
+
+    local w, h = self:GetContentSize()
+    if (!w || !h) then return end
+
+    self:SetTall(h + (addval or 0))
+
+    self.m_bYSized = true
+end
 
 local function isempty(s)
     return s == nil or s == ""
@@ -245,6 +260,10 @@ local function CreateItemPanel(parent, itemname, w, h) -- how do we do args aka 
                 table.insert(carttable, finaltable)
             end
         end
+
+        if IsValid(OpenCartPanel) then
+            OpenCartPanel:InvalidateLayout()
+        end
     end
 
     return itemButton
@@ -257,6 +276,13 @@ local function ItemScrollPanel(parent, x, y, w, h)
 
     function itemScrPanel:Paint(w, h)
         return nil
+    end
+
+    local oPerformLayout = itemScrPanel.PerformLayout
+
+    function itemScrPanel:PerformLayout(w, h)
+        oPerformLayout(pnl, w, h)
+        -- code here
     end
 
     local itemScrollBar = itemScrPanel:GetVBar()
@@ -285,8 +311,15 @@ local function SearchBox(parent, x, y, w, h)
         return nil
     end
 
+    local oOnValueChange = textEntry.OnValueChange
+
     function textEntry:OnValueChange(value)
+        oOnValueChange(value)
         local newtext = self:GetText()
+
+        if IsValid(OpenShopPanel) then
+            OpenShopPanel:InvalidateLayout()
+        end
 
         print(newtext)
         print(value)
@@ -310,7 +343,28 @@ local function FilterCheckBox(parent, text, x, y, w, h) -- how do we do togglabl
         return nil
     end
 
-    function checkBox:OnMenuOpened())
+    function checkBox:OnChange(bVal)
+        if IsValid(OpenShopPanel) then
+            OpenShopPanel:InvalidateLayout()
+        end
+    end
+
+    return checkBox
+end
+
+local function FilterComboBox(parent, x, y, w, h)
+    local dropDownPanel = vgui.Create("DComboBox", parent)
+    dropDownPanel:SetSize(w, h)
+    dropDownPanel:SetPos(x, y)
+
+    function dropDownPanel:Paint(w, h)
+        draw.RoundedBox(2, 0, 0, w, h, graycolor)
+        draw.DrawText("Armor Levels", "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
+
+        return nil
+    end
+
+    function dropDownPanel:OnMenuOpened())
         for i, _ in ipairs(self:GetChildren()) do
             local opt = self.Menu:GetChild(i)
             function opt:Paint(_w, _h)
@@ -327,20 +381,11 @@ local function FilterCheckBox(parent, text, x, y, w, h) -- how do we do togglabl
         end
     end
 
-    return checkBox
-end
-
-local function FilterComboBox(parent, x, y, w, h)
-    local dropDownPanel = vgui.Create("DComboBox", parent)
-    dropDownPanel:SetSize(w, h)
-    dropDownPanel:SetPos(x, y)
-
-    -- function dropDownPanel:Paint(w, h)
-    --     draw.RoundedBox(2, 0, 0, w, h, graycolor)
-    --     draw.DrawText(self:GetText(), "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
-
-    --     return nil
-    -- end
+    function dropDownPanel:OnSelect(index, value, data)
+        if IsValid(OpenShopPanel) then
+            OpenShopPanel:InvalidateLayout()
+        end
+    end
 
     return dropDownPanel
 end
@@ -488,6 +533,10 @@ local function ExpandedItemPanel(itemname)
                 table.insert(carttable, finaltable)
             end
         end
+
+        if IsValid(OpenCartPanel) then
+            OpenCartPanel:InvalidateLayout()
+        end
     end
 
     OpenItemFrame = itemFrame
@@ -495,10 +544,11 @@ local function ExpandedItemPanel(itemname)
     return itemFrame
 end
 
-local function CartItemPanel(parent, itemname, quanity, x, y, w, h)
+local function CartItemPanel(parent, itemname, quanity, w, h)
     if itemname == nil or parent == nil then return end
 
     local cartItem = parent:Add("DPanel")
+    cartItem:SetSize(w, h)
     cartItem:Dock(TOP)
     cartItem:DockMargin(0, 0, 0, 10)
 
@@ -645,6 +695,8 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
     motherFrame:ParentToHUD()
     HideHUD = true
 
+    motherFrame.lblTitle.Think = nil
+
     carttable = {} -- or table.Empty(carttable)
 
     chicagoRP.PanelFadeIn(motherFrame, 0.15)
@@ -682,14 +734,48 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
 
     local browsingPanels = {searcherPanel, filterPanel}
 
+    local searchstring = nil
+
     for k, v in ipairs(chicagoRP_NPCShop.categories) do
         local catButton = CategoryButton(catScrollPanel, k, w, h)
 
         local shopScrollPanel = ItemScrollPanel(motherFrame, 100, 200, 700, 500)
         shopScrollPanel:Hide()
 
+        for _, v3 in ipairs(browsingPanels) do
+            v3:Hide()
+        end
+
+        local oPerformLayout = shopScrollPanel.PerformLayout
+
+        function shopScrollPanel:PerformLayout(w, h)
+            oPerformLayout(w, h)
+
+            for _, v4 in ipairs(self:GetChildren()) do
+                v4:Remove()
+            end
+
+            for _, v2 in ipairs(chicagoRP_NPCShop[v.name]) do
+                for _, v5 in ipairs(filtertable) do -- how do we get args and compare them?
+                    if v2.slot == v5 then continue end
+                    if isstring(searchstring) and IsValid(string.match(v.ent, searchstring)) then continue end
+                    local itemPanel = CreateItemPanel(shopScrollPanel, v2.ent, w, h)
+                end
+            end
+        end
+
         function catButton:DoClick()
+            filtertable = {} -- or table.Empty(carttable)
+
+            searchstring = nil
+
             shopScrollPanel:Show()
+
+            OpenShopPanel = shopScrollPanel
+
+            for _, v3 in ipairs(browsingPanels) do
+                v3:Show()
+            end
 
             for _, v2 in ipairs(chicagoRP_NPCShop[v.name]) do
                 local itemPanel = CreateItemPanel(shopScrollPanel, v2.ent, w, h)
@@ -697,6 +783,39 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
         end
     end
 
+    function searcherPanel:OnValueChange(value)
+        oOnValueChange(value)
+        local newtext = self:GetText()
+
+        if IsValid(OpenShopPanel) then
+            OpenShopPanel:InvalidateLayout()
+        end
+
+        print(newtext)
+        print(value)
+    end
+
+    local nPerformLayout = cartScrollPanel.PerformLayout
+
+    function cartScrollPanel:PerformLayout(w, h)
+        nPerformLayout(w, h)
+
+        for _, v4 in ipairs(self:GetChildren()) do
+            v4:Remove()
+        end
+
+        for _, v in ipairs(carttable)
+            CartItemPanel(cartScrollPanel, v.itemname, v.quanity, 100, 200)
+        end
+    end
+
+    if !table.IsEmpty(carttable) then
+        for _, v in ipairs(carttable)
+            CartItemPanel(cartScrollPanel, v.itemname, v.quanity, 100, 200)
+        end
+    end
+
+    OpenCartPanel = cartScrollPanel
     OpenMotherFrame = motherFrame
 end)
 
@@ -704,17 +823,13 @@ print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
 -- add toggle options to dcombobox (idk how)
--- item scroll panel create/perform layout code
--- filter table calc code + filter create/perform layout code
--- cart panel performlayout code
+-- filter table calc code
 -- create serverside discount table calculation code
 -- GetItemCategory function or send item category with net message
 -- uodate clientside quanity text when serverside quanity table is updated (table callback?)
 -- how to (securely) send NPC table to GUI?
 -- add homepage (just restocked, most popular, discounts)
 -- add mLogs and Billy's Logs support
-
-
 
 
 
