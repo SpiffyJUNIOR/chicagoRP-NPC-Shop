@@ -18,8 +18,7 @@ local enabled = GetConVar("cl_chicagoRP_NPCShop_enable")
 local blurMat = Material("pp/blurscreen")
 local meta = FindMetaTable("Panel")
 
--- dlabel think resizing every frame so we make it only one time
-function meta:SizeToContentsY(addval)
+function meta:SizeToContentsY(addval) -- dlabel think resizing every frame so we make it only one time
     if self.m_bYSized then return end
 
     local w, h = self:GetContentSize()
@@ -28,6 +27,25 @@ function meta:SizeToContentsY(addval)
     self:SetTall(h + (addval or 0))
 
     self.m_bYSized = true
+end
+
+local function KeyFromValue(tbl, val)
+    for key, value in ipairs(tbl) do
+        if (value == val) then return key end
+    end
+end
+
+local function RemoveByValue(tbl, val)
+    local key = KeyFromValue(tbl, val)
+    if (!key) then return false end
+
+    if (isnumber(key)) then
+        table.remove(tbl, key)
+    else
+        tbl[key] = nil
+    end
+
+    return key
 end
 
 local function isempty(s)
@@ -133,8 +151,9 @@ local function CategoryButton(parent, index, w, h)
     catButton:SetSize(w, h)
 
     local cattable = chicagoRP_NPCShop.categories[index]
+    local printname = string.gsub(cattable.name, "^%l", string.upper) -- how do we do this for first letter of every word?
 
-    catButton:SetText(string.upper(cattable.name)) -- how do we only uppercase the first letter of a word?
+    catButton:SetText(printname)
 
     function catButton:Paint(w, h)
         draw.RoundedBox(2, 0, 0, w, h, graycolor)
@@ -326,6 +345,77 @@ local function SearchBox(parent, x, y, w, h)
     end
 
     return textEntry
+end
+
+local function FilterMinMaxSort(parent, x, y, w, h)
+    local sortPanel = vgui.Create("DPanel", parent)
+    sortPanel:SetSize(w, h)
+    sortPanel:SetPos(x, y)
+
+    function sortPanel:Paint(w, h)
+        draw.RoundedBox(2, 0, 0, w, h, graycolor)
+
+        return nil
+    end
+
+    local minTextEntry = vgui.Create("DTextEntry", sortPanel)
+    minTextEntry:SetSize(30, 15)
+    minTextEntry:SetPos(0, 0)
+    minTextEntry:SetText("...")
+
+    function minTextEntry:Paint(w, h)
+        draw.RoundedBox(2, 0, 0, w, h, graycolor)
+        draw.DrawText(self:GetText(), "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
+
+        return nil
+    end
+
+    local oOnValueChange = minTextEntry.OnValueChange
+
+    function minTextEntry:OnValueChange(value)
+        oOnValueChange(value)
+        local newtext = self:GetText()
+
+        print(newtext)
+        print(value)
+    end
+
+    local hyphenLabel = vgui.Create("DLabel", sortPanel)
+    hyphenLabel:SetPos(45, 0)
+    hyphenLabel:SetSize(10, 10)
+    hyphenLabel:SetFont("chicagoRP_NPCShop")
+    hyphenLabel:SetText("-")
+    hyphenLabel:SetTextColor(whitecolor)
+
+    hyphenLabel.Think = nil
+
+    function hyphenLabel:Paint(w, h)
+        return nil
+    end
+
+    local maxTextEntry = vgui.Create("DTextEntry", sortPanel)
+    maxTextEntry:SetSize(30, 15)
+    maxTextEntry:SetPos(60, 0)
+    maxTextEntry:SetText("...")
+
+    function maxTextEntry:Paint(w, h)
+        draw.RoundedBox(2, 0, 0, w, h, graycolor)
+        draw.DrawText(self:GetText(), "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
+
+        return nil
+    end
+
+    local oOnValueChange = maxTextEntry.OnValueChange
+
+    function maxTextEntry:OnValueChange(value)
+        oOnValueChange(value)
+        local newtext = self:GetText()
+
+        print(newtext)
+        print(value)
+    end
+
+    return sortPanel
 end
 
 local function FilterCheckBox(parent, text, x, y, w, h) -- how do we do togglable options?
@@ -625,7 +715,7 @@ local function PurchaseButton(parent, x, y, w, h)
         net.WriteData(compTable, bytecount)
         net.SendToServer()
 
-        carttable = {} -- or table.Empty(carttable)
+        carttable = {}
     end
 
     return purButton
@@ -697,7 +787,7 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
 
     motherFrame.lblTitle.Think = nil
 
-    carttable = {} -- or table.Empty(carttable)
+    carttable = {}
 
     chicagoRP.PanelFadeIn(motherFrame, 0.15)
 
@@ -765,7 +855,7 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
         end
 
         function catButton:DoClick()
-            filtertable = {} -- or table.Empty(carttable)
+            filtertable = {}
 
             searchstring = nil
 
@@ -805,13 +895,13 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
         end
 
         for _, v in ipairs(carttable)
-            CartItemPanel(cartScrollPanel, v.itemname, v.quanity, 100, 200)
+            CartItemPanel(cartScrollPanel, v, 100, 200)
         end
     end
 
     if !table.IsEmpty(carttable) then
         for _, v in ipairs(carttable)
-            CartItemPanel(cartScrollPanel, v.itemname, v.quanity, 100, 200)
+            CartItemPanel(cartScrollPanel, v, 100, 200)
         end
     end
 
@@ -822,8 +912,11 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- add toggle options to dcombobox (idk how)
 -- filter table calc code
+-- price min/max performlayout and filter logic
+-- add toggle options to dcombobox (idk how)
+-- how do we compare table value numbers to either create a min/max panel or a regular checkbox? (create filter function that returns filtered table)
+-- add table parsing (filter table and item panel)
 -- create serverside discount table calculation code
 -- GetItemCategory function or send item category with net message
 -- uodate clientside quanity text when serverside quanity table is updated (table callback?)
