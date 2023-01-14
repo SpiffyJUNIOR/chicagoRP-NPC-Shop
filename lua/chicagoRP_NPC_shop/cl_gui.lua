@@ -15,6 +15,7 @@ local slightbluecolor = Color(225, 255, 250, 255)
 local purplecolor = Color(200, 200, 30, 255) -- probably not purple
 local reddebug = Color(200, 10, 10, 150)
 local enabled = GetConVar("cl_chicagoRP_NPCShop_enable")
+local truenames_enabled = GetConVar("arccw_truenames")
 local blurMat = Material("pp/blurscreen")
 local meta = FindMetaTable("Panel")
 
@@ -27,25 +28,6 @@ function meta:SizeToContentsY(addval) -- dlabel think resizing every frame so we
     self:SetTall(h + (addval or 0))
 
     self.m_bYSized = true
-end
-
-local function KeyFromValue(tbl, val)
-    for key, value in ipairs(tbl) do
-        if (value == val) then return key end
-    end
-end
-
-local function RemoveByValue(tbl, val)
-    local key = KeyFromValue(tbl, val)
-    if (!key) then return false end
-
-    if (isnumber(key)) then
-        table.remove(tbl, key)
-    else
-        tbl[key] = nil
-    end
-
-    return key
 end
 
 local function isempty(s)
@@ -71,6 +53,88 @@ local function BlurBackground(panel)
     surface.SetDrawColor(0, 0, 0, Dark * Dynamic)
     surface.DrawRect(0, 0, panel:GetWide(), panel:GetTall())
     Dynamic = math.Clamp(Dynamic + (1 / FrameRate) * 7, 0, 1)
+end
+
+local function RemoveStrings(source, pretty) -- i'm not doing a full fucking table loop (nvm maybe i will)
+    if !istable(source) then return end
+
+    source[ent] = nil
+    source[infotext] = nil
+    source[printname] = nil
+
+    if !pretty or pretty == nil then return source end
+
+    source[price] = nil
+    source[quanity] = nil
+    source[restock] = nil
+
+    return source
+end
+
+local function EntityPrintName(enttbl)
+    local printname = nil
+    local enttbl = scripted_ents.GetStored(itemtbl.ent)
+    local sweptbl = weapons.GetStored(enttbl.ent)
+
+    if istable(sweptbl) then
+        printname = sweptbl.PrintName
+
+        if ArcCW and truenames_enabled:GetBool() and sweptbl.Base == "arccw_base" then
+            printname = sweptbl.TrueName
+        end
+    elseif istable(enttbl) then
+        printname = enttbl.PrintName
+    else
+        print("Failed to parse entity printname, check your shop table!")
+    end
+
+    return printname
+end
+
+local function EntityModel(enttbl)
+    local model = nil
+    local enttbl = scripted_ents.GetStored(itemtbl.ent)
+    local sweptbl = weapons.GetStored(enttbl.ent)
+
+    if istable(sweptbl) then
+        model = sweptbl.ViewModel
+    elseif istable(enttbl) then
+        printname = enttbl.Model or enttbl.Mdl or enttbl.DroppedModel or "models/props_borealis/bluebarrel001.mdl"
+        print(enttbl)
+    else
+        model = "models/props_borealis/bluebarrel001.mdl"
+        print("Failed to parse entity model, check your shop table!")
+    end
+
+    return model
+end
+
+local function GetStats(itemtbl)
+    local stattbl = nil
+    local enttbl = scripted_ents.GetStored(itemtbl.ent) -- how do we get entity table
+    local sweptbl = weapons.GetStored(itemtbl.ent)
+
+    local wpnparams = {"Damage", "DamageMin", "RangeMin", "Range", "Penetration", "MuzzleVelocity", "PhysBulletMuzzleVelocity", "ChamberSize", "Primary.ClipSize", "Recoil", "RecoilSide", "RecoilRise", "VisualRecoilMult", "MaxRecoilBlowback", "MaxRecoilPunch", "Delay", "Firemodes", "ShootVol", "AccuracyMOA", "HipDispersion", "MoveDispersion", "JumpDispersion", "Primary.Ammo", "SpeedMult", "SightedSpeedMult", "SightTime", "ShootSpeedMult"}
+    local attparams = {"Mult_DamageMin", "Mult_DrawTime", "Mult_AccuracyMOA", "Override_Trivia_Calibre", "Override_Firemodes", "Mult_HipDispersion", "Mult_MoveDispersion", "Mult_HolsterTime", "Mult_Damage", "Mult_SightTime", "Mult_Sway", "Mult_Recoil", "Mult_MalfunctionMean", "Mult_RecoilSide", "Mult_SightedSpeedMult", "Mult_ReloadTime", "Override_ClipSize", "Mult_VisualRecoilMult", "Mult_Penetration", "Mult_ShootSpeedMult", "Mult_RPM", "Mult_PhysBulletMuzzleVelocity", "Mult_ClipSize", "Mult_RangeMin", "Mult_Range"}
+
+    if istable(sweptbl) then
+        for _, v in ipairs(wpnparams) do
+            if isempty(sweptbl.v) then continue end
+
+            table.insert(stattbl, sweptbl.v)
+        end
+    elseif istable(enttbl) then
+        for _, v in ipairs(attparams) do
+            if isempty(sweptbl.v) then continue end
+
+            table.insert(stattbl, sweptbl.v)
+        end
+        print(enttbl)
+    else
+        print("Failed to parse stats, check your code or report this error to the github!")
+    end
+
+    return stattbl
 end
 
 local function SmoothScrollBar(vbar) -- why
@@ -143,6 +207,15 @@ hook.Add("HUDShouldDraw", "chicagoRP_NPCShop_HideHUD", function()
         return false
     end
 end)
+
+local function SpawnIcon(parent, model, x, y, w, h)
+    local SpawnIc = vgui.Create("SpawnIcon", parent)
+    SpawnIc:SetPos(x, y)
+    SpawnIc:SetSize(w, h)
+    SpawnIc:SetModel(model) -- Model we want for this spawn icon
+
+    return SpawnIc
+end
 
 local function CategoryButton(parent, index, w, h)
     local catButton = parent:Add("DButton")
@@ -238,7 +311,7 @@ local function AddCartButton(parent, x, y, w, h)
     return cartButton
 end
 
-local function CreateItemPanel(parent, itemname, w, h) -- how do we do args aka (...)???
+local function CreateItemPanel(parent, itemtbl, w, h) -- how do we do args aka (...)???
     if itemname == nil or parent == nil then return end
 
     -- local itemButton = vgui.Create("DButton", parent)
@@ -248,19 +321,25 @@ local function CreateItemPanel(parent, itemname, w, h) -- how do we do args aka 
     -- itemButton:SetSize(w, h)
     itemButton:SetPos(x, y)
 
+    local printname = EntityPrintName(itemtbl)
+
     function itemButton:Paint(w, h)
+        draw.DrawText(printname, "chicagoRP_NPCShop", (w / 2) - 10, 10, whitecolor, TEXT_ALIGN_LEFT)
         draw.RoundedBox(4, 0, 0, w, h, graycolor)
-        -- surface.SetMaterial(nil) -- how do we get spawnicon?
         surface.DrawTexturedRectRotated(20, y, w, 64, 0)
 
         return true
     end
 
     function itemButton:DoClick()
-        local expandedPanel = ExpandedItemPanel(itemname)
+        local expandedPanel = ExpandedItemPanel(itemtbl)
     end
 
-    local cartButton = AddCartButton(parent, itemname, x, y, w, h)
+    local spawnicon = SpawnIcon(itemButton, EntityModel(itemtbl), 100, 50, 64, 64)
+
+    spawnicon.Think = nil
+
+    local cartButton = AddCartButton(parent, itemtbl, x, y, w, h)
     local quanitySel = QuanitySelector(parent, 200, 0, 40, 20)
 
     function quanitySel:OnValueChanged(val)
@@ -376,6 +455,10 @@ local function FilterMinMaxSort(parent, x, y, w, h)
         oOnValueChange(value)
         local newtext = self:GetText()
 
+        if IsValid(OpenShopPanel) then
+            OpenShopPanel:InvalidateLayout()
+        end
+
         print(newtext)
         print(value)
     end
@@ -410,6 +493,10 @@ local function FilterMinMaxSort(parent, x, y, w, h)
     function maxTextEntry:OnValueChange(value)
         oOnValueChange(value)
         local newtext = self:GetText()
+
+        if IsValid(OpenShopPanel) then
+            OpenShopPanel:InvalidateLayout()
+        end
 
         print(newtext)
         print(value)
@@ -634,7 +721,7 @@ local function ExpandedItemPanel(itemname)
     return itemFrame
 end
 
-local function CartItemPanel(parent, itemname, quanity, w, h)
+local function CartItemPanel(parent, itemtbl, w, h)
     if itemname == nil or parent == nil then return end
 
     local cartItem = parent:Add("DPanel")
@@ -642,8 +729,10 @@ local function CartItemPanel(parent, itemname, quanity, w, h)
     cartItem:Dock(TOP)
     cartItem:DockMargin(0, 0, 0, 10)
 
+    local printname = EntityPrintName(itemtbl)
+
     function cartItem:Paint(w, h)
-        draw.DrawText(itemname, "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
+        draw.DrawText(printname, "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
         -- surface.SetMaterial(nil) -- how do we get spawnicon?
         surface.DrawTexturedRectRotated(0, 0, w, h, 0)
 
@@ -849,7 +938,7 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                 for _, v5 in ipairs(filtertable) do -- how do we get args and compare them?
                     if v2.slot == v5 then continue end
                     if isstring(searchstring) and IsValid(string.match(v.ent, searchstring)) then continue end
-                    local itemPanel = CreateItemPanel(shopScrollPanel, v2.ent, w, h)
+                    local itemPanel = CreateItemPanel(shopScrollPanel, v2, w, h)
                 end
             end
         end
@@ -868,7 +957,7 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
             end
 
             for _, v2 in ipairs(chicagoRP_NPCShop[v.name]) do
-                local itemPanel = CreateItemPanel(shopScrollPanel, v2.ent, w, h)
+                local itemPanel = CreateItemPanel(shopScrollPanel, v2, w, h)
             end
         end
     end
@@ -912,9 +1001,12 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
+-- add desc pros/cons to getstats function
+-- create getslot function
+-- filter panel createlayout code
 -- filter table calc code
--- price min/max performlayout and filter logic
--- add toggle options to dcombobox (idk how)
+-- price min/max filter logic
+-- replace SpawnIcon panel with DPanel that gets entity icon from it's table
 -- how do we compare table value numbers to either create a min/max panel or a regular checkbox? (create filter function that returns filtered table)
 -- add table parsing (filter table and item panel)
 -- create serverside discount table calculation code
