@@ -55,6 +55,18 @@ local function BlurBackground(panel)
     Dynamic = math.Clamp(Dynamic + (1 / FrameRate) * 7, 0, 1)
 end
 
+local function IsArcCWAtt(enttbl)
+    return ArcCW and isstring(enttbl.Description)
+end
+
+
+local function GetAttSlot(enttbl)
+    if !IsArcCWAtt(enttbl) then return end
+    local attbl = scripted_ents.GetStored(enttbl.ent)
+
+    return attbl.Slot
+end
+
 local function RemoveStrings(source, pretty) -- i'm not doing a full fucking table loop (nvm maybe i will)
     if !istable(source) then return end
 
@@ -71,6 +83,21 @@ local function RemoveStrings(source, pretty) -- i'm not doing a full fucking tab
     return source
 end
 
+local function GetArcCWWeaponFromAtt(atttbl)
+
+end
+
+local function ArcCWBodygroup(swepclass, bglist)
+    local bgtable = nil
+    local sweptbl = weapons.GetStored(swepclass)
+
+    for _, v in ipairs(bglist) do
+        table.insert(bgtable, sweptbl.AttachmentElements.v.VMBodygroups)
+    end
+
+    return bgtable
+end
+
 local function EntityPrintName(enttbl)
     local printname = nil
     local enttbl = scripted_ents.GetStored(itemtbl.ent)
@@ -79,7 +106,7 @@ local function EntityPrintName(enttbl)
     if istable(sweptbl) then
         printname = sweptbl.PrintName
 
-        if ArcCW and truenames_enabled:GetBool() and sweptbl.Base == "arccw_base" then
+        if ArcCW and truenames_enabled:GetBool() and sweptbl.Base == ("arccw_base" or "weapon_base_kent") then
             printname = sweptbl.TrueName
         end
     elseif istable(enttbl) then
@@ -109,13 +136,94 @@ local function EntityModel(enttbl)
     return model
 end
 
+local function SortStats(atttable)
+    local pros = {}
+    local cons = {}
+    local infos = {}
+
+    table.Add(pros, atttable.Desc_Pros or {})
+    table.Add(cons, atttable.Desc_Cons or {})
+    table.Add(infos, atttable.Desc_Neutrals or {})
+
+    -- local override = hook.Run("ArcCW_PreAutoStats", wep, att, pros, cons, infos, toggle)
+    -- if override then return pros, cons, infos end
+
+    -- Localize attachment-specific text
+    local hasmaginfo = false
+    for i, v in pairs(pros) do
+        if v == "pro.magcap" then hasmaginfo = true end
+        pros[i] = ArcCW.TryTranslation(v)
+    end
+    for i, v in pairs(cons) do
+        if v == "con.magcap" then hasmaginfo = true end
+        cons[i] = ArcCW.TryTranslation(v)
+    end
+    for i, v in pairs(infos) do infos[i] = ArcCW.TryTranslation(v) end
+
+    if !atttable.AutoStats then return pros, cons, infos end
+
+    -- Process togglable stats
+    if atttable.ToggleStats then
+        --local toggletbl = atttable.ToggleStats[toggle or 1]
+        for ti, toggletbl in pairs(atttable.ToggleStats) do
+            -- show the first stat block (unless NoAutoStats), and all blocks with AutoStats
+            if toggletbl.AutoStats or (ti == (toggle or 1) and !toggletbl.NoAutoStats) then
+                local dmgboth = toggletbl.Mult_DamageMin and toggletbl.Mult_Damage and toggletbl.Mult_DamageMin == toggletbl.Mult_Damage
+                for i, stat in SortedPairsByMemberValue(ArcCW.AutoStats, "pr", true) do
+                    if !toggletbl[i] or toggletbl[i .. "_SkipAS"] then continue end
+                    local val = toggletbl[i]
+
+                    local txt, typ = stattext(nil, toggletbl, i, val, dmgboth, ArcCW.AutoStats[i].flipsigns )
+                    if !txt then continue end
+
+                    local prefix = (stat[2] == "override" and k == true) and "" or ("[" .. (toggletbl.AutoStatName or toggletbl.PrintName or ti) .. "] ")
+
+                    if typ == "pros" then
+                        tbl_ins(pros, prefix .. txt)
+                    elseif typ == "cons" then
+                        tbl_ins(cons, prefix .. txt)
+                    elseif typ == "infos" then
+                        tbl_ins(infos, prefix .. txt)
+                    end
+                end
+            end
+        end
+    end
+
+    local dmgboth = atttable.Mult_DamageMin and atttable.Mult_Damage and atttable.Mult_DamageMin == atttable.Mult_Damage
+
+    for i, stat in SortedPairsByMemberValue(ArcCW.AutoStats, "pr", true) do
+        if !atttable[i] or atttable[i .. "_SkipAS"] then continue end
+
+        -- Legacy support: If "Increased/Decreased magazine capacity" line exists, don't do our autostats version
+        if hasmaginfo and i == "Override_ClipSize" then continue end
+
+        if i == "UBGL" then 
+            tbl_ins(infos, translate("autostat.ubgl2"))
+        end
+
+        local txt, typ = stattext(nil, atttable, i, atttable[i], dmgboth, ArcCW.AutoStats[i].flipsigns )
+        if !txt then continue end
+
+        if typ == "pros" then
+            tbl_ins(pros, txt)
+        elseif typ == "cons" then
+            tbl_ins(cons, txt)
+        elseif typ == "infos" then
+            tbl_ins(infos, txt)
+        end
+    end
+
+    return pros, cons
+end
+
 local function GetStats(itemtbl)
     local stattbl = nil
     local enttbl = scripted_ents.GetStored(itemtbl.ent) -- how do we get entity table
     local sweptbl = weapons.GetStored(itemtbl.ent)
 
     local wpnparams = {"Damage", "DamageMin", "RangeMin", "Range", "Penetration", "MuzzleVelocity", "PhysBulletMuzzleVelocity", "ChamberSize", "Primary.ClipSize", "Recoil", "RecoilSide", "RecoilRise", "VisualRecoilMult", "MaxRecoilBlowback", "MaxRecoilPunch", "Delay", "Firemodes", "ShootVol", "AccuracyMOA", "HipDispersion", "MoveDispersion", "JumpDispersion", "Primary.Ammo", "SpeedMult", "SightedSpeedMult", "SightTime", "ShootSpeedMult"}
-    local attparams = {"Mult_DamageMin", "Mult_DrawTime", "Mult_AccuracyMOA", "Override_Trivia_Calibre", "Override_Firemodes", "Mult_HipDispersion", "Mult_MoveDispersion", "Mult_HolsterTime", "Mult_Damage", "Mult_SightTime", "Mult_Sway", "Mult_Recoil", "Mult_MalfunctionMean", "Mult_RecoilSide", "Mult_SightedSpeedMult", "Mult_ReloadTime", "Override_ClipSize", "Mult_VisualRecoilMult", "Mult_Penetration", "Mult_ShootSpeedMult", "Mult_RPM", "Mult_PhysBulletMuzzleVelocity", "Mult_ClipSize", "Mult_RangeMin", "Mult_Range"}
+    -- local attparams = {"Mult_DamageMin", "Mult_DrawTime", "Mult_AccuracyMOA", "Mult_HipDispersion", "Mult_MoveDispersion", "Mult_HolsterTime", "Mult_Damage", "Mult_SightTime", "Mult_Sway", "Mult_Recoil", "Mult_MalfunctionMean", "Mult_RecoilSide", "Mult_SightedSpeedMult", "Mult_ReloadTime", "Mult_VisualRecoilMult", "Mult_Penetration", "Mult_ShootSpeedMult", "Mult_RPM", "Mult_PhysBulletMuzzleVelocity", "Mult_ClipSize", "Mult_RangeMin", "Mult_Range", "Override_ClipSize", "Override_Trivia_Calibre", "Override_Firemodes"}
 
     if istable(sweptbl) then
         for _, v in ipairs(wpnparams) do
@@ -124,10 +232,17 @@ local function GetStats(itemtbl)
             table.insert(stattbl, sweptbl.v)
         end
     elseif istable(enttbl) then
-        for _, v in ipairs(attparams) do
-            if isempty(sweptbl.v) then continue end
+        -- for _, v in ipairs(attparams) do
+        --     if isempty(sweptbl.v) then continue end
 
-            table.insert(stattbl, sweptbl.v)
+        --     table.insert(stattbl, sweptbl.v)
+        -- end
+        if itemtbl.override == true then
+            stattbl = RemoveStrings(itemtbl, true)
+        elseif IsArcCWAtt(enttbl) then
+            local pros, cons = ArcCW:GetProsCons(nil, enttbl)
+
+            return pros, cons
         end
         print(enttbl)
     else
@@ -311,8 +426,61 @@ local function AddCartButton(parent, x, y, w, h)
     return cartButton
 end
 
-local function CreateItemPanel(parent, itemtbl, w, h) -- how do we do args aka (...)???
-    if itemname == nil or parent == nil then return end
+local function InfoTextPanel(parent, text, color, w, h)
+    local textScrPanel = vgui.Create("DPanel", parent)
+    itemScrPanel:SetSize(w, h)
+    itemScrPanel:Dock(TOP)
+    itemScrPanel:DockMargin(0, 0, 5, 5)
+
+    local colortrue = IsColor(color)
+
+    if colortrue then color.a = 50 end
+
+    function itemScrPanel:Paint(w, h)
+        draw.DrawText(text, "chicagoRP_NPCShop", 0, 0, whitecolor, TEXT_ALIGN_LEFT)
+
+        if colortrue then
+            surface.SetDrawColor(color)
+            surface.DrawRect(0, 0, w, h)
+
+            return true
+        else
+            return nil
+        end
+    end
+
+    return itemScrPanel
+end
+
+local function InfoParentPanel(parent, itemtbl, x, y, w, h)
+    local parentScrPanel = vgui.Create("DScrollPanel", parent)
+    parentScrPanel:SetPos(x, y)
+    parentScrPanel:SetSize(w, h)
+
+    function parentScrPanel:Paint(w, h)
+        return nil
+    end
+
+    local parentScrollBar = parentScrPanel:GetVBar()
+    parentScrollBar:SetHideButtons(true)
+    function parentScrollBar:Paint(w, h)
+        if parentScrollBar.btnGrip:IsHovered() then
+            draw.RoundedBox(2, 0, 0, w, h, Color(42, 40, 35, 66))
+        end
+    end
+    function parentScrollBar.btnGrip:Paint(w, h)
+        if self:IsHovered() then
+            draw.RoundedBox(8, 0, 0, w, h, Color(76, 76, 74, 100))
+        end
+    end
+
+    SmoothScrollBar(parentScrollBar)
+
+    return parentScrPanel
+end
+
+local function CreateItemPanel(parent, itemtbl, w, h)
+    if itemtbl == nil or parent == nil then return end
 
     -- local itemButton = vgui.Create("DButton", parent)
     local itemButton = parent:Add("DButton")
@@ -339,8 +507,25 @@ local function CreateItemPanel(parent, itemtbl, w, h) -- how do we do args aka (
 
     spawnicon.Think = nil
 
-    local cartButton = AddCartButton(parent, itemtbl, x, y, w, h)
+    local cartButton = AddCartButton(parent, x, y, w, h)
     local quanitySel = QuanitySelector(parent, 200, 0, 40, 20)
+    local statPanel = InfoParentPanel(parent, itemtbl, 2, 100, w - 4, 100)
+
+    local stattbl, stattbl2 = GetStats(itemtbl)
+
+    for _, v in ipairs(stattbl) do
+        if isempty(v) then continue end
+
+        InfoTextPanel(parent, v, whitecolor, (w / 2) - 4, 25)
+    end
+
+    if !isempty(stattbl2) and istable(stattbl2) then
+        for _, v2 in ipairs(stattbl2) do
+            if isempty(v2) then continue end
+
+            InfoTextPanel(parent, v2, whitecolor, (w / 2) - 4, 25)
+        end
+    end
 
     function quanitySel:OnValueChanged(val)
         print("Quanity: " .. val)
@@ -349,10 +534,10 @@ local function CreateItemPanel(parent, itemtbl, w, h) -- how do we do args aka (
 
     function cartButton:DoClick()
         local quanity = self.value -- how do we do if quanity > server_quanity then func return end?
-        local finaltable = {itemname, quanity}
+        local finaltable = {itemtbl, quanity}
 
         for _, v in ipairs(carttable) do
-            if v.itemname == itemname then
+            if v.itemname == itemtbl then
                 v.quanity = v.quanity + quanity
             else
                 table.insert(carttable, finaltable)
@@ -374,13 +559,6 @@ local function ItemScrollPanel(parent, x, y, w, h)
 
     function itemScrPanel:Paint(w, h)
         return nil
-    end
-
-    local oPerformLayout = itemScrPanel.PerformLayout
-
-    function itemScrPanel:PerformLayout(w, h)
-        oPerformLayout(pnl, w, h)
-        -- code here
     end
 
     local itemScrollBar = itemScrPanel:GetVBar()
@@ -637,9 +815,7 @@ local function FancyModelPanel(parent, model, x, y, w, h, lightcolor)
     return modelPanel
 end
 
-local function ExpandedItemPanel(itemname)
-    if isempty(itemname) then itemname = "Item Info" end
-
+local function ExpandedItemPanel(itemtbl)
     local ply = LocalPlayer()
     if IsValid(OpenMotherFrame) then OpenMotherFrame:Close() return end
     if !IsValid(ply) then return end
@@ -666,6 +842,9 @@ local function ExpandedItemPanel(itemname)
     itemFrame:MakePopup()
     itemFrame:Center()
 
+    local printname = "Item Info"
+    local isAtt = IsArcCWAtt(itemtbl)
+
     function itemFrame:OnClose()
         if IsValid(self) then
             chicagoRP.PanelFadeOut(itemFrame, 0.15)
@@ -689,10 +868,18 @@ local function ExpandedItemPanel(itemname)
         BlurBackground(self)
     end
 
-    local modelPanel = FancyModelPanel(itemFrame, model, 50, 0, frameW, 300, purplecolor)
+    local modelPanel = FancyModelPanel(itemFrame, itemtbl.Model, 50, 0, frameW, 300, purplecolor)
     local textPanel = ScrollingTextPanel(itemFrame, 350, 0, 100, 100)
     local cartButton = AddCartButton(itemFrame, 500, 860, 100, 30)
     local quanitySel = QuanitySelector(itemFrame, 500, 820, 40, 20)
+
+    if isAtt and !isempty(itemtbl.ActivateElements) then
+        local bodygroups = ArcCWBodygroup(GetArcCWWeaponFromAtt(atttbl), itemtbl.ActivateElements)
+
+        for _, v in ipairs(bodygroups) do
+            modelPanel.Entity:SetBodygroup(v.ind, v.bg)
+        end
+    end
 
     function quanitySel:OnValueChanged(val)
         print("Quanity: " .. val)
@@ -1001,8 +1188,8 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- add desc pros/cons to getstats function
--- create getslot function
+-- create GetArcCWWeaponFromAtt function (how do we remove _grip, _mag, etc from ud_m16_grip_wood?)
+-- create pretty weapon params function
 -- filter panel createlayout code
 -- filter table calc code
 -- price min/max filter logic
