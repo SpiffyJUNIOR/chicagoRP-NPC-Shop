@@ -19,6 +19,92 @@ local truenames_enabled = GetConVar("arccw_truenames")
 local blurMat = Material("pp/blurscreen")
 local meta = FindMetaTable("Panel")
 
+local ArcCW_AutoStats = {
+    -- Attachments
+    ["MagExtender"]           = { "autostat.magextender", "override", false,       pr = 317 },
+    ["MagReducer"]            = { "autostat.magreducer",  "override", true,        pr = 316 },
+    ["Bipod"]                 = { "autostat.bipod",       false, false,            pr = 313 },
+    ["ScopeGlint"]            = { "autostat.glint",       "override", true,        pr = 255 },
+    ["Silencer"]              = { "autostat.silencer",    "override", false,       pr = 254 },
+    ["Override_NoRandSpread"] = { "autostat.norandspr",   "override", false,       pr = 253 },
+    ["Override_CanFireUnderwater"] = { "autostat.underwater",   "override", false, pr = 252 },
+    ["Override_ShootWhileSprint"] = { "autostat.sprintshoot",   "override", false, pr = 251 },
+    -- Multipliers
+    ["Mult_BipodRecoil"]      = { "autostat.bipodrecoil", false, true,             pr = 312 },
+    ["Mult_BipodDispersion"]  = { "autostat.bipoddisp",   false, true,             pr = 311 },
+    ["Mult_Damage"]           = { "autostat.damage",      "mult", false,           pr = 215 },
+    ["Mult_DamageMin"]        = { "autostat.damagemin",   "mult", false,           pr = 214 },
+    ["Mult_Range"]            = { "autostat.range",       "mult", false,           pr = 185 },
+    ["Mult_RangeMin"]         = { "autostat.rangemin",    "mult", false,           pr = 184 },
+    ["Mult_Penetration"]      = { "autostat.penetration", "mult", false,           pr = 213 },
+    ["Mult_MuzzleVelocity"]   = { "autostat.muzzlevel",   "mult", false,           pr = 212 },
+    ["Mult_PhysBulletMuzzleVelocity"] = { "autostat.muzzlevel",   "mult", false,   pr = 211 },
+    ["Mult_MeleeTime"]        = { "autostat.meleetime",   "mult", true,            pr = 145 },
+    ["Mult_MeleeDamage"]      = { "autostat.meleedamage", "mult", false,           pr = 144 },
+    ["Add_MeleeRange"]        = { "autostat.meleerange",  false,  false,           pr = 143 },
+    ["Mult_Recoil"]           = { "autostat.recoil",      "mult", true,            pr = 195 },
+    ["Mult_RecoilSide"]       = { "autostat.recoilside",  "mult", true,            pr = 194 },
+    ["Mult_RPM"]              = { "autostat.firerate",    "mult", false,           pr = 216 },
+    ["Mult_AccuracyMOA"]      = { "autostat.precision",   "mult", true,            pr = 186 },
+    ["Mult_HipDispersion"]    = { "autostat.hipdisp",     "mult", true,            pr = 155 },
+    ["Mult_SightsDispersion"] = { "autostat.sightdisp",   "mult", true,            pr = 154 },
+    ["Mult_MoveDispersion"]   = { "autostat.movedisp",    "mult", true,            pr = 153 },
+    ["Mult_JumpDispersion"]   = { "autostat.jumpdisp",    "mult", true,            pr = 152 },
+    ["Mult_ShootVol"]         = { "autostat.shootvol",    "mult", true,            pr = 115 },
+    ["Mult_SpeedMult"]        = { "autostat.speedmult",   "mult", false,           pr = 114 },
+    ["Mult_MoveSpeed"]        = { "autostat.speedmult",   "mult", false,           pr = 105 },
+    ["Mult_SightedSpeedMult"] = { "autostat.sightspeed",  "mult", false,           pr = 104 },
+    ["Mult_SightedMoveSpeed"] = { "autostat.sightspeed",  "mult", false,           pr = 103 },
+    ["Mult_ShootSpeedMult"]   = { "autostat.shootspeed",  "mult", false,           pr = 102 },
+    ["Mult_ReloadTime"]       = { "autostat.reloadtime",  "mult", true,            pr = 125 },
+    ["Add_BarrelLength"]      = { "autostat.barrellength","add",  true,            pr = 915 },
+    ["Mult_DrawTime"]         = { "autostat.drawtime",    "mult", true,            pr = 14 },
+    ["Mult_SightTime"]        = { "autostat.sighttime",   "mult", true,            pr = 335, flipsigns = true },
+    ["Mult_CycleTime"]        = { "autostat.cycletime",   "mult", true,            pr = 334 },
+    ["Mult_Sway"]             = { "autostat.sway",        "mult",  true,           pr = 353 },
+    ["Mult_HeatCapacity"]     = { "autostat.heatcap",     "mult", false,           pr = 10 },
+    ["Mult_HeatDissipation"]  = { "autostat.heatdrain",   "mult", false,           pr = 9 },
+    ["Mult_FixTime"]          = { "autostat.heatfix",     "mult", true,            pr = 8 },
+    ["Mult_HeatDelayTime"]    = { "autostat.heatdelay",   "mult", true,            pr = 7 },
+    ["Mult_MalfunctionMean"]  = { "autostat.malfunctionmean", "mult", false,       pr = 6 },
+    ["Add_ClipSize"]          = { "autostat.clipsize.mod",    "add", false,         pr = 315 },
+    ["Mult_ClipSize"]         = { "autostat.clipsize.mod",    "mult", false,        pr = 314 },
+
+    ["Override_Ammo"] = {"autostat.ammotype", "func", function(wep, val, att)
+        -- have to use the weapons table here because Primary.Ammo *is* modified when attachments are used
+        local weptbl = weapons.GetStored(wep)
+        if !istable(weptbl) or weptbl.Primary.Ammo == val then return end
+        return string.format(translate("autostat.ammotype"), string.lower(ArcCW.TranslateAmmo(val))), "infos"
+    end, pr = 316},
+    ["Override_ClipSize"] = {"autostat.clipsize", "func", function(wep, val, att)
+        local weptbl = weapons.GetStored(wep)
+        if !istable(weptbl) then return end
+        local ogclip = weptbl.RegularClipSize or (weptbl.Primary and weptbl.Primary.ClipSize) or 0
+        if ogclip < val then
+            return string.format(translate("autostat.clipsize"), val), "pros"
+        else
+            return string.format(translate("autostat.clipsize"), val), "cons"
+        end
+    end, pr = 317},
+    ["Bipod"] = {"autostat.bipod2", "func", function(wep, val, att)
+        local weptbl = weapons.GetStored(wep)
+        if val then
+            local recoil = 100 - math.Round((att.Mult_BipodRecoil or (istable(weptbl) and weptbl.BipodRecoil) or 1) * 100)
+            local disp = 100 - math.Round((att.Mult_BipodDispersion or (istable(weptbl) and weptbl.BipodDispersion) or 1) * 100)
+            return string.format(translate("autostat.bipod2"), disp, recoil), "pros"
+        else
+            return translate("autostat.nobipod"), "cons"
+        end
+    end, pr = 314},
+    ["UBGL"] = { "autostat.ubgl",  "override", false,        pr = 950 },
+    ["UBGL_Ammo"] = {"autostat.ammotypeubgl", "func", function(wep, val, att)
+        -- have to use the weapons table here because Primary.Ammo *is* modified when attachments are used
+        local weptbl = weapons.GetStored(wep)
+        if !istable(weptbl) then return end
+        return string.format(translate("autostat.ammotypeubgl"), string.lower(ArcCW.TranslateAmmo(val))), "infos"
+    end, pr = 949},
+}
+
 function meta:SizeToContentsY(addval) -- dlabel think resizing every frame so we make it only one time
     if self.m_bYSized then return end
 
@@ -55,10 +141,48 @@ local function BlurBackground(panel)
     Dynamic = math.Clamp(Dynamic + (1 / FrameRate) * 7, 0, 1)
 end
 
-local function IsArcCWAtt(enttbl)
-    return ArcCW and isstring(enttbl.Description)
+local function GetWeaponBase(enttbl)
+    local sweptbl = weapons.GetStored(enttbl.ent)
+    local swepbase = sweptbl.Base
+
+    if !istable(sweptbl) then return end
+
+    if swepbase == ("arccw_base" or "weapon_base_kent") then
+        return "arccw"
+    elseif swepbase == ("arc9_go_base" or "arc9_base") then
+        return "arc9"
+    elseif swepbase == "cw_base" then
+        return "cw2"
+    elseif swepbase == "tfa_gun_base" then 
+        return "tfa"
+    else
+        return "default"
+    end
 end
 
+local function IsARC9Att(enttbl)
+    return ARC9 and !isempty(string.find(enttbl.ent, "arc9_att_"))
+end
+
+local function IsArcCWAtt(enttbl)
+    return ArcCW and !isempty(string.find(enttbl.ent, "acwatt_"))
+end
+
+local function IsCW2Att(enttbl) -- have to dl cw2 source
+    -- local atttbl = scripted_ents.GetStored(enttbl.ent)
+
+    -- if !istable(attbl) then return false end
+
+    -- return TFA and istable(atttbl.WeaponTable)
+end
+
+local function IsTFAAtt(enttbl)
+    local atttbl = scripted_ents.GetStored(enttbl.ent)
+
+    if !istable(attbl) then return false end
+
+    return TFA and istable(atttbl.WeaponTable) -- check scripted_ents.register att prefix
+end
 
 local function GetAttSlot(enttbl)
     if !IsArcCWAtt(enttbl) then return end
@@ -83,19 +207,19 @@ local function RemoveStrings(source, pretty) -- i'm not doing a full fucking tab
     return source
 end
 
-local function GetArcCWWeaponFromAtt(atttbl)
-
-end
-
 local function ArcCWBodygroup(swepclass, bglist)
     local bgtable = nil
     local sweptbl = weapons.GetStored(swepclass)
 
-    for _, v in ipairs(bglist) do
-        table.insert(bgtable, sweptbl.AttachmentElements.v.VMBodygroups)
-    end
+    if istable(bglist) then
+        for _, v in ipairs(bglist) do
+            table.insert(bgtable, sweptbl.AttachmentElements.v.VMBodygroups)
+        end
 
-    return bgtable
+        return bgtable
+    else
+        return bglist
+    end
 end
 
 local function EntityPrintName(enttbl)
@@ -126,7 +250,7 @@ local function EntityModel(enttbl)
     if istable(sweptbl) then
         model = sweptbl.ViewModel
     elseif istable(enttbl) then
-        printname = enttbl.Model or enttbl.Mdl or enttbl.DroppedModel or "models/props_borealis/bluebarrel001.mdl"
+        printname = enttbl.DroppedModel or enttbl.Mdl or enttbl.Model
         print(enttbl)
     else
         model = "models/props_borealis/bluebarrel001.mdl"
@@ -136,10 +260,55 @@ local function EntityModel(enttbl)
     return model
 end
 
-local function SortStats(atttable)
+local function stattext(wep, att, i, k, dmgboth, flipsigns)
+    if !ArcCW_AutoStats[i] then return end
+    if i == "Mult_DamageMin" and dmgboth then return end
+
+    local stat = ArcCW_AutoStats[i]
+
+    local txt = ""
+    local str, eval = ArcCW.GetTranslation(stat[1]) or stat[1], stat[3]
+
+    if i == "Mult_Damage" and dmgboth then
+        str = ArcCW.GetTranslation("autostat.damageboth") or stat[1]
+    end
+
+    local tcon, tpro = eval and "cons" or "pros", eval and "pros" or "cons"
+
+    if stat[3] == "infos" then
+        tcon = "infos"
+    end
+
+    if stat[2] == "mult" and k != 1 then
+        local sign, percent = k > 1 and (flipsigns and "-" or "+") or (flipsigns and "+" or "-"), k > 1 and (k - 1) or (1 - k)
+        txt = sign .. tostr(math.Round(percent * 100, 2)) .. "% "
+        return txt .. str, k > 1 and tcon or tpro
+    elseif stat[2] == "add" and k != 0 then
+        local sign, state = k > 0 and (flipsigns and "-" or "+") or (flipsigns and "+" or "-"), k > 0 and k or -k
+        txt = sign .. tostr(state) .. " "
+        return txt .. str, k > 0 and tcon or tpro
+    elseif stat[2] == "override" and k == true then
+        return str, tcon
+    elseif stat[2] == "func" then
+        local a, b = stat[3](wep, k, att)
+        if a and b then return a, b end
+    end
+end
+
+local function GetAttStats(wep, enttable)
     local pros = {}
     local cons = {}
     local infos = {}
+
+    local atttable = scripted_ents.GetStored(enttable.ent) -- how do we get entity table
+
+    if !IsArcCWAtt(atttable) then return end
+
+    if enttable.override == true then
+        local stattbl = RemoveStrings(enttable, true)
+
+        return stattbl
+    end
 
     table.Add(pros, atttable.Desc_Pros or {})
     table.Add(cons, atttable.Desc_Cons or {})
@@ -169,21 +338,21 @@ local function SortStats(atttable)
             -- show the first stat block (unless NoAutoStats), and all blocks with AutoStats
             if toggletbl.AutoStats or (ti == (toggle or 1) and !toggletbl.NoAutoStats) then
                 local dmgboth = toggletbl.Mult_DamageMin and toggletbl.Mult_Damage and toggletbl.Mult_DamageMin == toggletbl.Mult_Damage
-                for i, stat in SortedPairsByMemberValue(ArcCW.AutoStats, "pr", true) do
+                for i, stat in SortedPairsByMemberValue(ArcCW_AutoStats, "pr", true) do
                     if !toggletbl[i] or toggletbl[i .. "_SkipAS"] then continue end
                     local val = toggletbl[i]
 
-                    local txt, typ = stattext(nil, toggletbl, i, val, dmgboth, ArcCW.AutoStats[i].flipsigns )
+                    local txt, typ = stattext(wep, toggletbl, i, val, dmgboth, ArcCW_AutoStats[i].flipsigns)
                     if !txt then continue end
 
                     local prefix = (stat[2] == "override" and k == true) and "" or ("[" .. (toggletbl.AutoStatName or toggletbl.PrintName or ti) .. "] ")
 
                     if typ == "pros" then
-                        tbl_ins(pros, prefix .. txt)
+                        table.insert(pros, prefix .. txt)
                     elseif typ == "cons" then
-                        tbl_ins(cons, prefix .. txt)
+                        table.insert(cons, prefix .. txt)
                     elseif typ == "infos" then
-                        tbl_ins(infos, prefix .. txt)
+                        table.insert(infos, prefix .. txt)
                     end
                 end
             end
@@ -192,38 +361,45 @@ local function SortStats(atttable)
 
     local dmgboth = atttable.Mult_DamageMin and atttable.Mult_Damage and atttable.Mult_DamageMin == atttable.Mult_Damage
 
-    for i, stat in SortedPairsByMemberValue(ArcCW.AutoStats, "pr", true) do
+    for i, _ in SortedPairsByMemberValue(ArcCW_AutoStats, "pr", true) do
         if !atttable[i] or atttable[i .. "_SkipAS"] then continue end
 
         -- Legacy support: If "Increased/Decreased magazine capacity" line exists, don't do our autostats version
         if hasmaginfo and i == "Override_ClipSize" then continue end
 
         if i == "UBGL" then 
-            tbl_ins(infos, translate("autostat.ubgl2"))
+            table.insert(infos, translate("autostat.ubgl2"))
         end
 
-        local txt, typ = stattext(nil, atttable, i, atttable[i], dmgboth, ArcCW.AutoStats[i].flipsigns )
+        local txt, typ = stattext(wep, atttable, i, atttable[i], dmgboth, ArcCW_AutoStats[i].flipsigns)
         if !txt then continue end
 
         if typ == "pros" then
-            tbl_ins(pros, txt)
+            table.insert(pros, txt)
         elseif typ == "cons" then
-            tbl_ins(cons, txt)
+            table.insert(cons, txt)
         elseif typ == "infos" then
-            tbl_ins(infos, txt)
+            table.insert(infos, txt)
         end
     end
 
-    return pros, cons
+    return pros, cons, infos
+end
+
+local function GetArcCWStats(wpnname) -- unfinished
+    local wpnparams = {"Damage", "DamageMin", "RangeMin", "Range", "Penetration", "MuzzleVelocity", "PhysBulletMuzzleVelocity", "Primary.ClipSize", "Recoil", "RecoilSide", "RecoilRise", "VisualRecoilMult", "MaxRecoilBlowback", "RecoilPunch", "Delay", "Firemodes", "ShootVol", "AccuracyMOA", "HipDispersion", "MoveDispersion", "JumpDispersion", "Primary.Ammo", "SpeedMult", "SightedSpeedMult", "SightTime", "ShootSpeedMult"}
+
+    local mode = fm.Mode
+    if mode == 0 then return ArcCW.GetTranslation("fcg.safe") end
+    if mode == 1 then return ArcCW.GetTranslation("fcg.semi") end
+    if mode >= 2 then return ArcCW.GetTranslation("fcg.auto") end
+    if mode < 0 then return string.format(ArcCW.GetTranslation("fcg.burst"), tostring(-mode))
 end
 
 local function GetStats(itemtbl)
     local stattbl = nil
     local enttbl = scripted_ents.GetStored(itemtbl.ent) -- how do we get entity table
     local sweptbl = weapons.GetStored(itemtbl.ent)
-
-    local wpnparams = {"Damage", "DamageMin", "RangeMin", "Range", "Penetration", "MuzzleVelocity", "PhysBulletMuzzleVelocity", "ChamberSize", "Primary.ClipSize", "Recoil", "RecoilSide", "RecoilRise", "VisualRecoilMult", "MaxRecoilBlowback", "MaxRecoilPunch", "Delay", "Firemodes", "ShootVol", "AccuracyMOA", "HipDispersion", "MoveDispersion", "JumpDispersion", "Primary.Ammo", "SpeedMult", "SightedSpeedMult", "SightTime", "ShootSpeedMult"}
-    -- local attparams = {"Mult_DamageMin", "Mult_DrawTime", "Mult_AccuracyMOA", "Mult_HipDispersion", "Mult_MoveDispersion", "Mult_HolsterTime", "Mult_Damage", "Mult_SightTime", "Mult_Sway", "Mult_Recoil", "Mult_MalfunctionMean", "Mult_RecoilSide", "Mult_SightedSpeedMult", "Mult_ReloadTime", "Mult_VisualRecoilMult", "Mult_Penetration", "Mult_ShootSpeedMult", "Mult_RPM", "Mult_PhysBulletMuzzleVelocity", "Mult_ClipSize", "Mult_RangeMin", "Mult_Range", "Override_ClipSize", "Override_Trivia_Calibre", "Override_Firemodes"}
 
     if istable(sweptbl) then
         for _, v in ipairs(wpnparams) do
@@ -239,17 +415,15 @@ local function GetStats(itemtbl)
         -- end
         if itemtbl.override == true then
             stattbl = RemoveStrings(itemtbl, true)
-        elseif IsArcCWAtt(enttbl) then
-            local pros, cons = ArcCW:GetProsCons(nil, enttbl)
 
-            return pros, cons
+            return stattbl
+        elseif IsArcCWAtt(enttbl) then
+            return nil
         end
         print(enttbl)
     else
         print("Failed to parse stats, check your code or report this error to the github!")
     end
-
-    return stattbl
 end
 
 local function SmoothScrollBar(vbar) -- why
@@ -511,19 +685,40 @@ local function CreateItemPanel(parent, itemtbl, w, h)
     local quanitySel = QuanitySelector(parent, 200, 0, 40, 20)
     local statPanel = InfoParentPanel(parent, itemtbl, 2, 100, w - 4, 100)
 
-    local stattbl, stattbl2 = GetStats(itemtbl)
+    local stattbl = GetStats(itemtbl)
+    local pros, cons, infos = GetAttStats(itemtbl.wpn, itemtbl.ent)
 
-    for _, v in ipairs(stattbl) do
-        if isempty(v) then continue end
+    if istable(stattbl) then
+        for _, v in ipairs(stattbl) do
+            if isempty(v) then continue end
 
-        InfoTextPanel(parent, v, whitecolor, (w / 2) - 4, 25)
-    end
+            InfoTextPanel(parent, v, whitecolor, (w / 2) - 4, 25)
+        end
+    elseif !istable(stattbl) or stattbl == nil then
+        local pros, cons, infos = GetAttStats(itemtbl.wpn, itemtbl.ent)
 
-    if !isempty(stattbl2) and istable(stattbl2) then
-        for _, v2 in ipairs(stattbl2) do
-            if isempty(v2) then continue end
+        if istable(pros) then
+            for _, v2 in ipairs(pros) do
+                if isempty(v2) then continue end
 
-            InfoTextPanel(parent, v2, whitecolor, (w / 2) - 4, 25)
+                InfoTextPanel(parent, v2, whitecolor, (w / 2) - 4, 25)
+            end
+        end
+
+        if istable(cons) then
+            for _, v2 in ipairs(cons) do
+                if isempty(v2) then continue end
+
+                InfoTextPanel(parent, v2, whitecolor, (w / 2) - 4, 25)
+            end
+        end
+
+        if istable(infos) then
+            for _, v2 in ipairs(infos) do
+                if isempty(v2) then continue end
+
+                InfoTextPanel(parent, v2, whitecolor, (w / 2) - 4, 25)
+            end
         end
     end
 
@@ -825,6 +1020,8 @@ local function ExpandedItemPanel(itemtbl)
 
     if closebool == false then return end
 
+    local entname = itemtbl.ent
+
     local screenwidth = ScrW()
     local screenheight = ScrH()
     local frameW, frameH = screenwidth / 1.6, screenheight / 1.6
@@ -833,7 +1030,7 @@ local function ExpandedItemPanel(itemtbl)
     itemFrame:SetVisible(true)
     itemFrame:SetDraggable(true)
     itemFrame:ShowCloseButton(true)
-    itemFrame:SetTitle(itemname)
+    itemFrame:SetTitle(EntityPrintName(entname))
     itemFrame:ParentToHUD() -- needed?
     HideHUD = true
 
@@ -841,9 +1038,6 @@ local function ExpandedItemPanel(itemtbl)
 
     itemFrame:MakePopup()
     itemFrame:Center()
-
-    local printname = "Item Info"
-    local isAtt = IsArcCWAtt(itemtbl)
 
     function itemFrame:OnClose()
         if IsValid(self) then
@@ -868,13 +1062,23 @@ local function ExpandedItemPanel(itemtbl)
         BlurBackground(self)
     end
 
-    local modelPanel = FancyModelPanel(itemFrame, itemtbl.Model, 50, 0, frameW, 300, purplecolor)
+    local model = EntityModel(entname)
+    local isAtt = IsArcCWAtt(itemtbl)
+    local enttbl = scripted_ents.GetStored(entname)
+    local bg_elements = enttbl.ActivateElements
+
+    local modelPanel = FancyModelPanel(itemFrame, model, 50, 0, frameW, 300, purplecolor) -- fix model
     local textPanel = ScrollingTextPanel(itemFrame, 350, 0, 100, 100)
     local cartButton = AddCartButton(itemFrame, 500, 860, 100, 30)
     local quanitySel = QuanitySelector(itemFrame, 500, 820, 40, 20)
 
-    if isAtt and !isempty(itemtbl.ActivateElements) then
-        local bodygroups = ArcCWBodygroup(GetArcCWWeaponFromAtt(atttbl), itemtbl.ActivateElements)
+    if isAtt and istable(enttbl) and !isempty(bg_elements) then
+        local weapon = itemtbl.wpn
+        local parenttbl = weapons.GetStored(weapon)
+
+        local bodygroups = ArcCWBodygroup(weapon, bg_elements)
+
+        modelPanel:SetModel(parenttbl.Model)
 
         for _, v in ipairs(bodygroups) do
             modelPanel.Entity:SetBodygroup(v.ind, v.bg)
@@ -1102,7 +1306,7 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
 
     local searchstring = nil
 
-    for k, v in ipairs(chicagoRP_NPCShop.categories) do
+    for _, v in ipairs(chicagoRP_NPCShop.categories) do
         local catButton = CategoryButton(catScrollPanel, k, w, h)
 
         local shopScrollPanel = ItemScrollPanel(motherFrame, 100, 200, 700, 500)
@@ -1188,8 +1392,7 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- create GetArcCWWeaponFromAtt function (how do we remove _grip, _mag, etc from ud_m16_grip_wood?)
--- create pretty weapon params function
+-- create GetArcCWStats function (get stats from weapon table and convert to pretty strings by using global lang strings)
 -- filter panel createlayout code
 -- filter table calc code
 -- price min/max filter logic

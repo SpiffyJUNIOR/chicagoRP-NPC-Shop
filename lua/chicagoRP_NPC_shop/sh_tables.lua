@@ -134,7 +134,8 @@ chicagoRP_NPCShop.attachments = {
         quanity = 6,
         restock = 600,
         -- slots = {"ud_m16_stock"},
-        type = "stock"
+        type = "stock",
+        wpn = "arccw_ud_m16"
     }
 }
 
