@@ -42,8 +42,10 @@ chicagoRP_NPCShop.armor = {
         slot = "head",
         weight = 5
     }, {
+        discount = 30,
+        discounttime = 300, -- in seconds
         ent = "ezjmodheavychest",
-        infotext = "For when you need the best protection possible, or just wanna feel like a badass; heavy chest armor is your premier choice.",
+        infotext = "For when you need the best protection possible, or just want to feel like an absolute machine; heavy chest armor is your premier choice.",
         override = true,
         price = 770,
         protection = 5,

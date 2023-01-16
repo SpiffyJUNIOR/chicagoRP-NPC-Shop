@@ -18,6 +18,27 @@ local enabled = GetConVar("cl_chicagoRP_NPCShop_enable")
 local truenames_enabled = GetConVar("arccw_truenames")
 local blurMat = Material("pp/blurscreen")
 local meta = FindMetaTable("Panel")
+local L = {}
+
+L["stat.Damage"] = "Close Range Damage"
+L["stat.DamageMin"] = "Long Range Damage"
+L["stat.Range"] = "Range"
+L["stat.RangeMin"] = "Minimum Range"
+L["stat.Delay"] = "Firerate"
+L["stat.Primary.ClipSize"] = "Mag Size"
+L["stat.Precision"] = "Accuracy"
+L["stat.HipDispersion"] = "Hipfire Spread"
+L["stat.MoveDispersion"] = "Moving Accuracy"
+L["stat.JumpDispersion"] = "Jump Accuracy"
+L["stat.MuzzleVelocity"] = "Muzzle Velocity"
+L["stat.Recoil"] = "Recoil"
+L["stat.RecoilSide"] = "Horizontal Recoil"
+L["stat.SightTime"] = "Handling"
+L["stat.SpeedMult"] = "Move Speed"
+L["stat.SightedSpeedMult"] = "Sighted Speed"
+L["stat.ShootVol"] = "Volume"
+L["stat.BarrelLength"] = "Length"
+L["stat.Penetration"] = "Penetration"
 
 local ArcCW_AutoStats = {
     -- Attachments
@@ -160,6 +181,26 @@ local function GetWeaponBase(enttbl)
     end
 end
 
+local function PrettifyString(str)
+    local cachestr = str
+    if string.StartWith(str, "%u") then return str end
+
+    local upperstr = string.gsub(cachestr, "^%l", string.upper)
+
+    return upperstr
+end
+
+local function PrettifyArcCWString(str)
+    if isempty(str) then return nil end
+    local indexedstr = L[str]
+
+    if !isempty(indexedstr) then
+        return indexedstr
+    end
+
+    return PrettifyString(str)
+end
+
 local function IsARC9Att(enttbl)
     return ARC9 and !isempty(string.find(enttbl.ent, "arc9_att_"))
 end
@@ -197,12 +238,16 @@ local function RemoveStrings(source, pretty) -- i'm not doing a full fucking tab
     source[ent] = nil
     source[infotext] = nil
     source[printname] = nil
+    source[override] = nil
+    source[discount] = nil
+    source[discounttime] = nil
+    source[restock] = nil
 
     if !pretty or pretty == nil then return source end
 
     source[price] = nil
     source[quanity] = nil
-    source[restock] = nil
+    -- source[restock] = nil
 
     return source
 end
@@ -295,7 +340,7 @@ local function stattext(wep, att, i, k, dmgboth, flipsigns)
     end
 end
 
-local function GetAttStats(wep, enttable)
+local function GetAttStats(wep, enttable) -- check the table to make it filter compatible
     local pros = {}
     local cons = {}
     local infos = {}
@@ -386,14 +431,18 @@ local function GetAttStats(wep, enttable)
     return pros, cons, infos
 end
 
-local function GetArcCWStats(wpnname) -- unfinished
-    local wpnparams = {"Damage", "DamageMin", "RangeMin", "Range", "Penetration", "MuzzleVelocity", "PhysBulletMuzzleVelocity", "Primary.ClipSize", "Recoil", "RecoilSide", "RecoilRise", "VisualRecoilMult", "MaxRecoilBlowback", "RecoilPunch", "Delay", "Firemodes", "ShootVol", "AccuracyMOA", "HipDispersion", "MoveDispersion", "JumpDispersion", "Primary.Ammo", "SpeedMult", "SightedSpeedMult", "SightTime", "ShootSpeedMult"}
+local function GetArcCWStats(wpnname)
+    local stattbl = {}
+    local wpntbl = weapons.GetStored(wpnname.ent)
+    local wpnparams = {"Damage", "DamageMin", "RangeMin", "Range", "Penetration", "MuzzleVelocity", "BarrelLength", "Primary.ClipSize", "Recoil", "RecoilSide", "RecoilRise", "Delay", "Firemodes", "ShootVol", "AccuracyMOA", "HipDispersion", "MoveDispersion", "JumpDispersion", "Primary.Ammo", "SpeedMult", "SightedSpeedMult", "SightTime", "ShootSpeedMult"}
+    
+    for _, v in ipairs(wpnparams) do
+        local paramtbl = {name = v, stat = wpntbl.[v]}
 
-    local mode = fm.Mode
-    if mode == 0 then return ArcCW.GetTranslation("fcg.safe") end
-    if mode == 1 then return ArcCW.GetTranslation("fcg.semi") end
-    if mode >= 2 then return ArcCW.GetTranslation("fcg.auto") end
-    if mode < 0 then return string.format(ArcCW.GetTranslation("fcg.burst"), tostring(-mode))
+        table.insert(stattbl, paramtbl)
+    end
+
+    return stattbl
 end
 
 local function GetStats(itemtbl)
@@ -799,10 +848,11 @@ local function SearchBox(parent, x, y, w, h)
     return textEntry
 end
 
-local function FilterMinMaxSort(parent, x, y, w, h)
+local function FilterMinMaxSort(parent, text, w, h)
     local sortPanel = vgui.Create("DPanel", parent)
     sortPanel:SetSize(w, h)
-    sortPanel:SetPos(x, y)
+    -- sortPanel:SetPos(x, y)
+    sortPanel:Dock(TOP)
 
     function sortPanel:Paint(w, h)
         draw.RoundedBox(2, 0, 0, w, h, graycolor)
@@ -810,7 +860,22 @@ local function FilterMinMaxSort(parent, x, y, w, h)
         return nil
     end
 
-    local minTextEntry = vgui.Create("DTextEntry", sortPanel)
+    local typeLabel = vgui.Create("DLabel", sortPanel)
+    typeLabel:SetPos(0, 0)
+    typeLabel:SetSize(10, 10)
+    typeLabel:SetFont("chicagoRP_NPCShop")
+    typeLabel:SetText(text)
+    typeLabel:SetTextColor(whitecolor)
+
+    typeLabel.Think = nil
+
+    function typeLabel:Paint(w, h)
+        draw.DrawText(self:GetText(), "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
+
+        return nil
+    end
+
+    local minTextEntry = vgui.Create("DNumberWang", sortPanel)
     minTextEntry:SetSize(30, 15)
     minTextEntry:SetPos(0, 0)
     minTextEntry:SetText("...")
@@ -822,19 +887,19 @@ local function FilterMinMaxSort(parent, x, y, w, h)
         return nil
     end
 
-    local oOnValueChange = minTextEntry.OnValueChange
+    -- local oOnValueChange = minTextEntry.OnValueChange
 
-    function minTextEntry:OnValueChange(value)
-        oOnValueChange(value)
-        local newtext = self:GetText()
+    -- function minTextEntry:OnValueChange(val)
+    --     oOnValueChange(val)
+    --     local newtext = self:GetValue()
 
-        if IsValid(OpenShopPanel) then
-            OpenShopPanel:InvalidateLayout()
-        end
+    --     if IsValid(OpenShopPanel) then
+    --         OpenShopPanel:InvalidateLayout()
+    --     end
 
-        print(newtext)
-        print(value)
-    end
+    --     print(newtext)
+    --     print(value)
+    -- end
 
     local hyphenLabel = vgui.Create("DLabel", sortPanel)
     hyphenLabel:SetPos(45, 0)
@@ -846,10 +911,12 @@ local function FilterMinMaxSort(parent, x, y, w, h)
     hyphenLabel.Think = nil
 
     function hyphenLabel:Paint(w, h)
+        draw.DrawText(self:GetText(), "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
+
         return nil
     end
 
-    local maxTextEntry = vgui.Create("DTextEntry", sortPanel)
+    local maxTextEntry = vgui.Create("DNumberWang", sortPanel)
     maxTextEntry:SetSize(30, 15)
     maxTextEntry:SetPos(60, 0)
     maxTextEntry:SetText("...")
@@ -861,27 +928,28 @@ local function FilterMinMaxSort(parent, x, y, w, h)
         return nil
     end
 
-    local oOnValueChange = maxTextEntry.OnValueChange
+    -- local nOnValueChange = maxTextEntry.OnValueChange
 
-    function maxTextEntry:OnValueChange(value)
-        oOnValueChange(value)
-        local newtext = self:GetText()
+    -- function maxTextEntry:OnValueChange(val)
+    --     nOnValueChange(val)
+    --     local newtext = self:GetValue()
 
-        if IsValid(OpenShopPanel) then
-            OpenShopPanel:InvalidateLayout()
-        end
+    --     if IsValid(OpenShopPanel) then
+    --         OpenShopPanel:InvalidateLayout()
+    --     end
 
-        print(newtext)
-        print(value)
-    end
+    --     print(newtext)
+    --     print(value)
+    -- end
 
-    return sortPanel
+    return sortPanel, minTextEntry, maxTextEntry
 end
 
-local function FilterCheckBox(parent, text, x, y, w, h) -- how do we do togglable options?
+local function FilterCheckBox(parent, text, w, h) -- how do we do togglable options?
     local checkBox = vgui.Create("DCheckBoxLabel", parent)
     checkBox:SetSize(w, h)
-    checkBox:SetPos(x, y)
+    -- checkBox:SetPos(x, y)
+    checkBox:Dock(TOP)
     checkBox:SetText(text)
     checkBox:SetValue(false)
     checkBox:SetTextInset(32, 0)
@@ -893,11 +961,11 @@ local function FilterCheckBox(parent, text, x, y, w, h) -- how do we do togglabl
         return nil
     end
 
-    function checkBox:OnChange(bVal)
-        if IsValid(OpenShopPanel) then
-            OpenShopPanel:InvalidateLayout()
-        end
-    end
+    -- function checkBox:OnChange(bVal)
+    --     if IsValid(OpenShopPanel) then
+    --         OpenShopPanel:InvalidateLayout()
+    --     end
+    -- end
 
     return checkBox
 end
@@ -1326,10 +1394,79 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
             end
 
             for _, v2 in ipairs(chicagoRP_NPCShop[v.name]) do
-                for _, v5 in ipairs(filtertable) do -- how do we get args and compare them?
-                    if v2.slot == v5 then continue end
-                    if isstring(searchstring) and IsValid(string.match(v.ent, searchstring)) then continue end
+                if istable(filtertable) and !isempty(filtertable) then
+                    for _, v5 in ipairs(filtertable) do -- how do we get args and compare them?
+                        if v5.typ != v.v5.typ and v5.inc != true then continue end -- for strings
+                        if v5.parse != v.v5.typ then continue end -- for numbers
+                        if v5.min < v.v5.parse then continue end -- for numbers
+                        if v5.max > v.v5.parse then continue end -- for numbers
+                        if isstring(searchstring) and IsValid(string.match(v.ent, searchstring)) then continue end
+
+                        local itemPanel = CreateItemPanel(shopScrollPanel, v2, w, h)
+                    end
+                else
                     local itemPanel = CreateItemPanel(shopScrollPanel, v2, w, h)
+                end
+
+                local sanitizedtbl = RemoveStrings(v2, false)
+                local filterLayout = {}
+
+                for _, v3 in ipairs(sanitizedtbl) do
+                    if isstring(v3) then
+                        local checkBox = FilterCheckBox(filterPanel, PrettifyString(v3), 40, 20)
+
+                        function checkBox:OnChange(bVal)
+                            filtertable[v3] = filtertable[v3] or {}
+
+                            filtertable[v3].typ == v3
+                            filtertable[v3].inc == bVal
+
+                            if IsValid(OpenShopPanel) then
+                                OpenShopPanel:InvalidateLayout()
+                            end
+                        end
+                    elseif isnumber(v3) and filterLayout[v3] == (false or nil) then
+                        local parentPanel, minSorter, maxSorter = FilterMinMaxSort(filterPanel, v3, w, h)
+                        filterLayout[v3] = true
+
+                        local minOnValueChange = minSorter.OnValueChange
+
+                        function maxSorter:OnValueChange(val)
+                            minOnValueChange(val)
+                            local newtext = self:GetValue()
+
+                            filtertable[v3] = filtertable[v3] or {}
+
+                            filtertable[v3].parse == v3
+                            filtertable[v3].min == val
+
+                            if IsValid(OpenShopPanel) then
+                                OpenShopPanel:InvalidateLayout()
+                            end
+
+                            print(newtext)
+                            print(value)
+                        end
+
+                        local maxOnValueChange = maxTextEntry.OnValueChange
+
+                        function maxSorter:OnValueChange(val)
+                            maxOnValueChange(val)
+                            local newtext = self:GetValue()
+
+                            filtertable[v3] = filtertable[v3] or {}
+
+                            filtertable[v3].parse == v3
+                            filtertable[v3].min == val
+
+                            if IsValid(OpenShopPanel) then
+                                OpenShopPanel:InvalidateLayout()
+                            end
+
+                            print(newtext)
+                            print(value)
+                        end
+                    end
                 end
             end
         end
@@ -1392,19 +1529,17 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- create GetArcCWStats function (get stats from weapon table and convert to pretty strings by using global lang strings)
--- filter panel createlayout code
--- filter table calc code
--- price min/max filter logic
+-- add arccw support to filter logic
 -- replace SpawnIcon panel with DPanel that gets entity icon from it's table
 -- how do we compare table value numbers to either create a min/max panel or a regular checkbox? (create filter function that returns filtered table)
--- add table parsing (filter table and item panel)
--- create serverside discount table calculation code
--- GetItemCategory function or send item category with net message
--- uodate clientside quanity text when serverside quanity table is updated (table callback?)
+-- GetDiscountTable function, GetQuanityTable function, and GetOOSTable function
+
+-- later:
+-- update clientside quanity text when serverside quanity table is updated (table callback?)
 -- how to (securely) send NPC table to GUI?
 -- add homepage (just restocked, most popular, discounts)
 -- add mLogs and Billy's Logs support
+
 
 
 

@@ -3,6 +3,11 @@ util.AddNetworkString("chicagoRP_NPCShop_sendcart")
 util.AddNetworkString("chicagoRP_NPCShop_senddiscount")
 util.AddNetworkString("chicagoRP_NPCShop_getdiscount")
 
+local enabled = GetConVar("sv_chicagoRP_NPCShop_enable")
+local discountsenabled = GetConVar("sv_chicagoRP_NPCShop_discounts")
+local discountchance = GetConVar("sv_chicagoRP_NPCShop_discountchance")
+local discountdelay = GetConVar("sv_chicagoRP_NPCShop_discountdelay")
+
 local discounttable = {}
 local quanitytable = {}
 local OOStable = {}
@@ -45,15 +50,44 @@ end
 local function RestockItem(ent)
 	RemoveByValue(OOStable, ent)
 
-	if timer.Exists(ent) then
-		timer.Remove(ent)
+	if timer.Exists("chicagoRP_NPCShop_OOS_" .. ent) then
+		timer.Remove("chicagoRP_NPCShop_OOS_" .. ent)
 	end
+end
+
+local function DiscountRemove(ent)
+	RemoveByValue(discounttable, ent)
+
+	if timer.Exists("chicagoRP_NPCShop_discount_" .. ent) then
+		timer.Remove("chicagoRP_NPCShop_OOS_" .. ent)
+	end
+end
+
+local function DiscountThink()
+	local seed = math.random(1, 100)
+	if seed > discountchance:GetInt() then return end
+
+	local randomitemtbl = mytable[math.random(1, #mytable)]
+
+	if timer.Exists("chicagoRP_NPCShop_discount_" .. v.ent) then return end
+
+	local discountseed = math.random(10, 50) -- default percent
+	local discounttime = 600 -- default time
+
+	if isnumber(v.discount) then discountseed = v.discount end
+	if isnumber(v.discounttime) then discounttime = v.discounttime end
+
+	timer.Create("chicagoRP_NPCShop_discount_" .. v.ent, discounttime, 1, DiscountRemove(v.ent))
+
+	local infotbl = {itemname = v.ent, discount = discountseed, discounttime = discounttime}
+
+	table.insert(discounttable, infotbl)
 end
 
 net.Receive("chicagoRP_NPCShop_senddiscount", function(_, ply)
 	local nettable = nil
 
-	if istable(discounttable) then 
+	if istable(discounttable) then
 		nettable = discounttable
 
         local JSONTable = util.TableToJSON(discounttable)
@@ -109,7 +143,7 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
                 	if v.quanity => v3.quanity then
                 		table.insert(OOStable, v.itemname)
 
-                		timer.Create(v.itemname, v3.restock, 1, RestockItem(v.itemname))
+                		timer.Create("chicagoRP_NPCShop_OOS_" .. v.itemname, v3.restock, 1, RestockItem(v.itemname))
                 	end
                 end
 
@@ -131,14 +165,16 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
 	ply:addMoney(-subtotal)
 end)
 
+if discountsenabled:GetBool() then
+	timer.Create("chicagoRP_NPCShop_discounts", discountdelay:GetInt(), 0, DiscountThink())
+end
+
 concommand.Add("chicagoRP_NPCShop", function(ply) -- how we close/open this based on bind being held?
     if !IsValid(ply) then return end
     net.Start("chicagoRP_NPCShop_GUI")
     net.WriteBool(true)
     net.Send(ply)
 end)
-
-
 
 
 
