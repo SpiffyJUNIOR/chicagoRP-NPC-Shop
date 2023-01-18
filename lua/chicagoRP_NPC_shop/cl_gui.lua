@@ -6,6 +6,8 @@ local OpenItemFrame = nil
 local carttable = {}
 local filtertable = {}
 local discounttable = nil
+local quanitytable = nil
+local OOStable = nil
 local Dynamic = 0
 local whitecolor = Color(255, 255, 255, 255)
 local blackcolor = Color(0, 0, 0, 255)
@@ -139,6 +141,10 @@ end
 
 local function isempty(s)
     return s == nil or s == ""
+end
+
+local function ismaterial(mat)
+    return type(mat) == nil or type(mat) == Material
 end
 
 local function BlurBackground(panel)
@@ -546,11 +552,35 @@ hook.Add("HUDShouldDraw", "chicagoRP_NPCShop_HideHUD", function()
     end
 end)
 
+local function GetModelIcon(enttbl)
+    local modelicon = nil
+
+    return modelicon
+end
+
 local function SpawnIcon(parent, model, x, y, w, h)
     local SpawnIc = vgui.Create("SpawnIcon", parent)
     SpawnIc:SetPos(x, y)
     SpawnIc:SetSize(w, h)
     SpawnIc:SetModel(model) -- Model we want for this spawn icon
+
+    return SpawnIc
+end
+
+local function OptimizedSpawnIcon(parent, model, x, y, w, h)
+    local SpawnIc = vgui.Create("ModelImage", parent) -- or DPanel
+    SpawnIc:SetPos(x, y)
+    SpawnIc:SetSize(w, h)
+    SpawnIc:SetModel(model) -- Model we want for this spawn icon
+
+    -- local iconmat = 
+
+    -- function SpawnIc:Paint(w, h)
+    --     surface.SetMaterial(IMaterial material)
+    --     surface.DrawTexturedRectRotated(0, 0, w, h, 0)
+
+    --     return nil
+    -- end
 
     return SpawnIc
 end
@@ -719,6 +749,11 @@ local function CreateItemPanel(parent, itemtbl, w, h)
         draw.RoundedBox(4, 0, 0, w, h, graycolor)
         surface.DrawTexturedRectRotated(20, y, w, 64, 0)
 
+        if self.discounted == true and isnumber(self.discountseed) then
+            draw.DrawText("HOLY SHIT CRACKER THESE SOME GOOD DISCOUNTS!!!", "chicagoRP_NPCShop", 40, 40, purplecolor, TEXT_ALIGN_CENTER)
+            draw.DrawText(self.discountseed, "chicagoRP_NPCShop", 20, 20, purplecolor, TEXT_ALIGN_CENTER)
+        end
+
         return true
     end
 
@@ -726,7 +761,7 @@ local function CreateItemPanel(parent, itemtbl, w, h)
         local expandedPanel = ExpandedItemPanel(itemtbl)
     end
 
-    local spawnicon = SpawnIcon(itemButton, EntityModel(itemtbl), 100, 50, 64, 64)
+    local spawnicon = OptimizedSpawnIcon(itemButton, EntityModel(itemtbl), 100, 50, 64, 64)
 
     spawnicon.Think = nil
 
@@ -1296,6 +1331,16 @@ local function GetDiscountTable()
     net.SendToServer()
 end
 
+local function GetQuanityTable()
+    net.Start("chicagoRP_NPCShop_sendquanity")
+    net.SendToServer()
+end
+
+local function GetOOSTable()
+    net.Start("chicagoRP_NPCShop_sendoos")
+    net.SendToServer()
+end
+
 net.Receive("chicagoRP_NPCShop_getdiscount", function()
     local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
     local compTable = net.ReadData(bytecount) -- Gets back our compressed message
@@ -1304,6 +1349,28 @@ net.Receive("chicagoRP_NPCShop_getdiscount", function()
 
     if istable(finalTable) then 
         discounttable = finalTable
+    end
+end)
+
+net.Receive("chicagoRP_NPCShop_getquanity", function()
+    local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
+    local compTable = net.ReadData(bytecount) -- Gets back our compressed message
+    local decompTable = util.Decompress(compTable)
+    local finalTable = util.JSONToTable(decompTable)
+
+    if istable(finalTable) then 
+        quanitytable = finalTable
+    end
+end)
+
+net.Receive("chicagoRP_NPCShop_getoos", function()
+    local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
+    local compTable = net.ReadData(bytecount) -- Gets back our compressed message
+    local decompTable = util.Decompress(compTable)
+    local finalTable = util.JSONToTable(decompTable)
+
+    if istable(finalTable) then 
+        OOStable = finalTable
     end
 end)
 
@@ -1336,6 +1403,8 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
     motherFrame.lblTitle.Think = nil
 
     carttable = {}
+
+    GetDiscountTable()
 
     chicagoRP.PanelFadeIn(motherFrame, 0.15)
 
@@ -1394,6 +1463,8 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
             end
 
             for _, v2 in ipairs(chicagoRP_NPCShop[v.name]) do
+                local itemPanel = nil
+
                 if istable(filtertable) and !isempty(filtertable) then
                     for _, v5 in ipairs(filtertable) do -- how do we get args and compare them?
                         if v5.typ != v.v5.typ and v5.inc != true then continue end -- for strings
@@ -1402,14 +1473,28 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                         if v5.max > v.v5.parse then continue end -- for numbers
                         if isstring(searchstring) and IsValid(string.match(v.ent, searchstring)) then continue end
 
-                        local itemPanel = CreateItemPanel(shopScrollPanel, v2, w, h)
+                        itemPanel = CreateItemPanel(shopScrollPanel, v2, w, h)
                     end
                 else
-                    local itemPanel = CreateItemPanel(shopScrollPanel, v2, w, h)
+                    itemPanel = CreateItemPanel(shopScrollPanel, v2, w, h)
+                end
+
+                for _, vv in ipairs(discounttable) do
+                    if !IsValid(itemPanel) or vv.itemname != v2.ent then continue end
+
+                    itemPanel.discounted = true
+                    itemPanel.discount = vv.discountseed
                 end
 
                 local sanitizedtbl = RemoveStrings(v2, false)
                 local filterLayout = {}
+
+                if GetWeaponBase(v2) == "arccw" then
+                    local wpntable = table.Add(v2, GetArcCWStats(v2))
+                    local scrubbedtbl = RemoveStrings(wpntable, false)
+
+                    sanitizedtbl = scrubbedtbl
+                end
 
                 for _, v3 in ipairs(sanitizedtbl) do
                     if isstring(v3) then
@@ -1529,13 +1614,11 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- add arccw support to filter logic
--- replace SpawnIcon panel with DPanel that gets entity icon from it's table
--- how do we compare table value numbers to either create a min/max panel or a regular checkbox? (create filter function that returns filtered table)
--- GetDiscountTable function, GetQuanityTable function, and GetOOSTable function
+-- hook GetQuanityTable functiona and GetOOSTable function into panels
+-- update clientside quanity text when serverside quanity table is updated (when quanity table is changed, send net message to client that invalidates panel layout and does GetQuanityTable and GetOOSTable)
 
 -- later:
--- update clientside quanity text when serverside quanity table is updated (table callback?)
+-- how to spawn npcs in an npc table and assign specific tables to them?
 -- how to (securely) send NPC table to GUI?
 -- add homepage (just restocked, most popular, discounts)
 -- add mLogs and Billy's Logs support

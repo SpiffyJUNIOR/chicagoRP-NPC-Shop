@@ -1,7 +1,11 @@
 util.AddNetworkString("chicagoRP_NPCShop_GUI")
 util.AddNetworkString("chicagoRP_NPCShop_sendcart")
 util.AddNetworkString("chicagoRP_NPCShop_senddiscount")
+util.AddNetworkString("chicagoRP_NPCShop_sendquanity")
+util.AddNetworkString("chicagoRP_NPCShop_sendoos")
 util.AddNetworkString("chicagoRP_NPCShop_getdiscount")
+util.AddNetworkString("chicagoRP_NPCShop_getquanity")
+util.AddNetworkString("chicagoRP_NPCShop_getoos")
 
 local enabled = GetConVar("sv_chicagoRP_NPCShop_enable")
 local discountsenabled = GetConVar("sv_chicagoRP_NPCShop_discounts")
@@ -101,6 +105,40 @@ net.Receive("chicagoRP_NPCShop_senddiscount", function(_, ply)
 	end
 end)
 
+net.Receive("chicagoRP_NPCShop_sendquanity", function(_, ply)
+	local nettable = nil
+
+	if istable(discounttable) then
+		nettable = quanitytable
+
+        local JSONTable = util.TableToJSON(discounttable)
+        local compTable = util.Compress(JSONTable)
+        local bytecount = #discounttable
+
+        net.Start("chicagoRP_NPCShop_sendquanity")
+        net.WriteUInt(bytecount, 16)
+        net.WriteData(compTable, bytecount)
+		net.Send(ply)
+	end
+end)
+
+net.Receive("chicagoRP_NPCShop_sendoos", function(_, ply)
+	local nettable = nil
+
+	if istable(discounttable) then
+		nettable = oostable
+
+        local JSONTable = util.TableToJSON(discounttable)
+        local compTable = util.Compress(JSONTable)
+        local bytecount = #discounttable
+
+        net.Start("chicagoRP_NPCShop_sendoos")
+        net.WriteUInt(bytecount, 16)
+        net.WriteData(compTable, bytecount)
+		net.Send(ply)
+	end
+end)
+
 net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
 	if !IsValid(ply) or !ply:Alive() or !ply:OnGround() or ply:InVehicle() then return end
 
@@ -123,7 +161,7 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
 
         if !table.IsEmpty(OOStable) then
         	for _, v4 in ipairs(OOStable) do
-        		if v4.itemname == v.itemname then print("item out of stock") end
+        		if v4.itemname == v.itemname then print("item out of stock") continue end
         	end
         end
 
@@ -160,6 +198,12 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
         end
 
         subtotal = subtotal + v.price
+        -- ply:Give(v.itemname)
+        local plypos = ply:GetPos()
+        plypos:Add(Vector(0, 5, 0))
+        local spawnedent = ents.Create(v.itemname)
+		button:SetPos(plypos)
+		button:Spawn()
 	end
 
 	ply:addMoney(-subtotal)
