@@ -8,6 +8,10 @@ local filtertable = {}
 local discounttable = nil
 local quanitytable = nil
 local OOStable = nil
+local discounttimertable = nil
+local restocktimertable = nil
+local discounttimers = nil
+local restocktimers = nil
 local Dynamic = 0
 local whitecolor = Color(255, 255, 255, 255)
 local blackcolor = Color(0, 0, 0, 255)
@@ -39,7 +43,7 @@ L["stat.SightTime"] = "Handling"
 L["stat.SpeedMult"] = "Move Speed"
 L["stat.SightedSpeedMult"] = "Sighted Speed"
 L["stat.ShootVol"] = "Volume"
-L["stat.BarrelLength"] = "Length"
+L["stat.BarrelLength"] = "Weapon Length"
 L["stat.Penetration"] = "Penetration"
 
 local ArcCW_AutoStats = {
@@ -437,15 +441,113 @@ local function GetAttStats(wep, enttable) -- check the table to make it filter c
     return pros, cons, infos
 end
 
-local function GetArcCWStats(wpnname)
+local function ArcCWStatString(str, statval)
+    if str == "Range" or str == "RangeMin" then
+        return tostring(statval) .. "m"
+    elseif str == "Penetration" then
+        return tostring(statval) .. "mm"
+    elseif str == "MuzzleVelocity" then
+        return tostring(statval) .. "m/s"
+    elseif str == "BarrelLength" then
+        return tostring(statval) .. "in"
+    elseif str == "Recoil" then
+        return statval * 20
+    elseif str == "RecoilSide" then
+        return statval * 20
+    elseif str == "Delay" then
+        return tostring(statval) .. "RPM"
+    elseif str == "ShootVol" then
+        return tostring(statval) .. "dB"
+    elseif str == "AccuracyMOA" then
+        return tostring(statval) .. " MOA"
+    elseif str == "SpeedMult" then
+        return statval * 20
+    elseif str == "SightedSpeedMult" then
+        return statval * 20
+    elseif str == "SightTime" then
+        return statval * 20
+    elseif str == "ShootSpeedMult" then
+        return statval * 20
+    else
+        print("didn't parse arccw stat string")
+    end
+end
+
+local function ArcCWFiremodesToString(firemodetbl)
+    local concattedstr = ""
+
+    for _, v in ipairs(firdemodetbl)
+        local mode = v.Mode
+        local str = nil
+
+        if mode == 0 then 
+            str = ArcCW.GetTranslation("fcg.safe.abbrev")
+        elseif mode == 1 then
+            str = ArcCW.GetTranslation("fcg.semi.abbrev")
+        elseif mode >= 2 then
+            str = ArcCW.GetTranslation("fcg.auto.abbrev")
+        elseif mode < 0 then
+            str = string.format(ArcCW.GetTranslation("fcg.burst.abbrev"), tostring(-mode)) 
+        end
+
+        concattedstr = concattedstr .. " " .. str
+    end
+
+    return concattedstr
+end
+
+local function ArcCWAmmoString(ammoname)
+    if isempty(ammoname) then return end
+
+    if ammoname == "pistol" then
+        return PrettifyString(ammoname)
+    elseif ammoname == "smg1"
+        return "Carbine"
+    elseif ammoname == "ar2"
+        return "Rifle"
+    elseif ammoname == "SniperPenetratedRound"
+        return "Sniper"
+    elseif ammoname == "buckshot"
+        return "Shotgun"
+    elseif ammoname == "357"
+        return "Magnum"
+    elseif ammoname == "smg1_grenade"
+        return "Grenade"
+    else
+        print("ammo string not parsed")
+    end
+end
+
+local function GetArcCWStats(wpnname, pretty)
     local stattbl = {}
     local wpntbl = weapons.GetStored(wpnname.ent)
-    local wpnparams = {"Damage", "DamageMin", "RangeMin", "Range", "Penetration", "MuzzleVelocity", "BarrelLength", "Primary.ClipSize", "Recoil", "RecoilSide", "RecoilRise", "Delay", "Firemodes", "ShootVol", "AccuracyMOA", "HipDispersion", "MoveDispersion", "JumpDispersion", "Primary.Ammo", "SpeedMult", "SightedSpeedMult", "SightTime", "ShootSpeedMult"}
+    local wpnparams = {"Damage", "DamageMin", "RangeMin", "Range", "Penetration", "MuzzleVelocity", "BarrelLength", "Primary.ClipSize", "Recoil", "RecoilSide", "Delay", "Firemodes", "ShootVol", "AccuracyMOA", "HipDispersion", "MoveDispersion", "JumpDispersion", "Primary.Ammo", "SpeedMult", "SightedSpeedMult", "SightTime", "ShootSpeedMult"}
     
     for _, v in ipairs(wpnparams) do
-        local paramtbl = {name = v, stat = wpntbl.[v]}
+        if pretty == nil or pretty == false then
+            local paramtbl = {name = v, stat = wpntbl.[v]}
 
-        table.insert(stattbl, paramtbl)
+            table.insert(stattbl, paramtbl)
+
+            continue
+        elseif pretty == true
+            local parsedstat = ArcCWStatString(v, wpntbl.[v])
+
+            if v == "Firemodes" then
+                parsedstat = ArcCWFiremodesToString(wpntbl.[v])
+            end
+
+            if v == "Primary.Ammo" then
+                parsedstat = ArcCWAmmoString(wpntbl.[v])
+            end
+
+
+            local paramtbl = {name = v, stat = parsedstat}
+
+            table.insert(stattbl, paramtbl)
+
+            continue
+        end
     end
 
     return stattbl
@@ -670,11 +772,11 @@ local function AddCartButton(parent, x, y, w, h)
     cartButton:SetSize(w, h)
     cartButton:SetPos(x, y)
 
-    function cartButton:Paint(w, h)
-        draw.RoundedBox(4, 0, 0, w, h, Color(20, 20, 210, 220))
+    -- function cartButton:Paint(w, h)
+    --     draw.RoundedBox(4, 0, 0, w, h, Color(20, 20, 210, 220))
 
-        return true
-    end
+    --     return true
+    -- end
 
     return cartButton
 end
@@ -744,6 +846,23 @@ local function CreateItemPanel(parent, itemtbl, w, h)
 
     local printname = EntityPrintName(itemtbl)
 
+    local maxquanity = self.quanity or v.quanity
+
+    local discounttimer = nil
+    local restocktimer = nil
+
+    if itemButton.discounttime == true and isnumber(itemButton.discounttime) then
+        discounttimer = timer.Create("chicagoRP_NPCShop_discount_" .. itemtbl.ent, itemButton.discounttime, 1)
+
+        table.insert(discounttimertable, itemtbl.ent)
+    end
+
+    if itemButton.outofstock == true and isnumber(itemButton.restocktime) then
+        restocktimer = timer.Create("chicagoRP_NPCShop_OOS_" .. itemtbl.ent, itemButton.restocktime, 1)
+
+        table.insert(restocktimertable, itemtbl.ent)
+    end
+
     function itemButton:Paint(w, h)
         draw.DrawText(printname, "chicagoRP_NPCShop", (w / 2) - 10, 10, whitecolor, TEXT_ALIGN_LEFT)
         draw.RoundedBox(4, 0, 0, w, h, graycolor)
@@ -753,6 +872,14 @@ local function CreateItemPanel(parent, itemtbl, w, h)
             draw.DrawText("HOLY SHIT CRACKER THESE SOME GOOD DISCOUNTS!!!", "chicagoRP_NPCShop", 40, 40, purplecolor, TEXT_ALIGN_CENTER)
             draw.DrawText(self.discountseed, "chicagoRP_NPCShop", 20, 20, purplecolor, TEXT_ALIGN_CENTER)
         end
+
+        if IsValid(discounttimer) and timer.TimeLeft(discounttimer) > 0 then
+            draw.DrawText(timer.TimeLeft(discounttimer), "chicagoRP_NPCShop", 10, 10, reddebug, TEXT_ALIGN_CENTER)
+        elseif IsValid(restocktimer) and timer.TimeLeft(restocktimer) > 0 then
+            draw.DrawText(timer.TimeLeft(restocktimer), "chicagoRP_NPCShop", 10, 10, reddebug, TEXT_ALIGN_CENTER)
+        end
+
+        draw.DrawText(maxquanity, "chicagoRP_NPCShop", 40, 30, purplecolor, TEXT_ALIGN_CENTER)
 
         return true
     end
@@ -771,6 +898,10 @@ local function CreateItemPanel(parent, itemtbl, w, h)
 
     local stattbl = GetStats(itemtbl)
     local pros, cons, infos = GetAttStats(itemtbl.wpn, itemtbl.ent)
+
+    if GetWeaponBase(itemtbl) == "arccw" then
+        stattbl = table.Add(itemtbl, GetArcCWStats(itemtbl, true))
+    end
 
     if istable(stattbl) then
         for _, v in ipairs(stattbl) do
@@ -806,14 +937,33 @@ local function CreateItemPanel(parent, itemtbl, w, h)
         end
     end
 
+    quanitySel:SetMax(maxquanity)
+    quanitySel:SetMin(1)
+
     function quanitySel:OnValueChanged(val)
         print("Quanity: " .. val)
         cartButton.value = val
     end
 
+    function cartButton:Paint(w, h)
+        draw.RoundedBox(4, 0, 0, w, h, Color(20, 20, 210, 220))
+
+        if self.outofstock == true then
+            draw.RoundedBox(4, 0, 0, w, h, Color(100, 20, 20, 220))
+            draw.DrawText("OUT OF STOCK", "chicagoRP_NPCShop", 0, 0, whitecolor, TEXT_ALIGN_LEFT)
+        end
+
+        return true
+    end
+
     function cartButton:DoClick()
-        local quanity = self.value -- how do we do if quanity > server_quanity then func return end?
-        local finaltable = {itemtbl, quanity}
+        local quanity = self.quanity or v.quanity -- how do we do if quanity > server_quanity then func return end?
+        local finaltable = {itemname = itemtbl, quanity = quanity}
+
+        if self.outofstock == true then
+            print("This item is out of stock!")
+            return
+        end
 
         for _, v in ipairs(carttable) do
             if v.itemname == itemtbl then
@@ -1326,6 +1476,24 @@ local function CartViewPanel(parent, x, y, w, h)
     return cartScrollPanel
 end
 
+net.Receive("chicagoRP_NPCShop_itemOOSalert", function()
+    local ply = LocalPlayer()
+    if !IsValid(ply) or !ply:Alive() then return end
+
+    local itemstring = net.ReadString()
+
+    ply:ChatPrint("Item " .. itemstring .. " is out of stock!")
+end)
+
+net.Receive("chicagoRP_NPCShop_updatequanity", function()
+    local ply = LocalPlayer()
+    if !IsValid(ply) or !ply:Alive() or !IsValid(OpenMotherFrame) or !IsValid(OpenShopPanel) then return end
+
+    if IsValid(OpenShopPanel) then
+        OpenShopPanel:InvalidateLayout()
+    end
+end)
+
 local function GetDiscountTable()
     net.Start("chicagoRP_NPCShop_senddiscount")
     net.SendToServer()
@@ -1337,6 +1505,16 @@ local function GetQuanityTable()
 end
 
 local function GetOOSTable()
+    net.Start("chicagoRP_NPCShop_sendoos")
+    net.SendToServer()
+end
+
+local function GetDiscountTimers()
+    net.Start("chicagoRP_NPCShop_sendoos")
+    net.SendToServer()
+end
+
+local function GetRestockTimers()
     net.Start("chicagoRP_NPCShop_sendoos")
     net.SendToServer()
 end
@@ -1374,6 +1552,28 @@ net.Receive("chicagoRP_NPCShop_getoos", function()
     end
 end)
 
+net.Receive("chicagoRP_NPCShop_getdiscounttimers", function()
+    local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
+    local compTable = net.ReadData(bytecount) -- Gets back our compressed message
+    local decompTable = util.Decompress(compTable)
+    local finalTable = util.JSONToTable(decompTable)
+
+    if istable(finalTable) then 
+        discounttimertable = finalTable
+    end
+end)
+
+net.Receive("chicagoRP_NPCShop_getrestocktimers", function()
+    local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
+    local compTable = net.ReadData(bytecount) -- Gets back our compressed message
+    local decompTable = util.Decompress(compTable)
+    local finalTable = util.JSONToTable(decompTable)
+
+    if istable(finalTable) then 
+        restocktimertable = finalTable
+    end
+end)
+
 net.Receive("chicagoRP_NPCShop_GUI", function()
     local ply = LocalPlayer()
     if IsValid(OpenMotherFrame) then OpenMotherFrame:Close() return end
@@ -1405,6 +1605,8 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
     carttable = {}
 
     GetDiscountTable()
+    GetQuanityTable()
+    GetOOSTable()
 
     chicagoRP.PanelFadeIn(motherFrame, 0.15)
 
@@ -1462,6 +1664,26 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                 v4:Remove()
             end
 
+            if istable(discounttimertable)
+                for _, vvv in ipairs(discounttimertable) do
+                    if timer.Exists("chicagoRP_NPCShop_discount_" .. vvv) then
+                        timer.Remove("chicagoRP_NPCShop_discount_" .. vvv)
+                    else
+                        continue
+                    end
+                end
+            end
+
+            if istable(restocktimertable)
+                for _, vvv in ipairs(restocktimertable) do
+                    if timer.Exists("chicagoRP_NPCShop_OOS_" .. vvv) then
+                        timer.Remove("chicagoRP_NPCShop_OOS_" .. vvv)
+                    else
+                        continue
+                    end
+                end
+            end
+
             for _, v2 in ipairs(chicagoRP_NPCShop[v.name]) do
                 local itemPanel = nil
 
@@ -1479,11 +1701,48 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                     itemPanel = CreateItemPanel(shopScrollPanel, v2, w, h)
                 end
 
-                for _, vv in ipairs(discounttable) do
-                    if !IsValid(itemPanel) or vv.itemname != v2.ent then continue end
+                if istable(discounttable) then
+                    for _, vv in ipairs(discounttable) do
+                        if !IsValid(itemPanel) or vv.itemname != v2.ent then continue end
 
-                    itemPanel.discounted = true
-                    itemPanel.discount = vv.discountseed
+                        itemPanel.discounted = true
+                        itemPanel.discount = vv.discountseed
+                    end
+                end
+
+                if istable(quanitytable) then
+                    for _, vv in ipairs(quanitytable) do
+                        if !IsValid(itemPanel) or vv.itemname != v2.ent then continue end
+
+                        itemPanel.quanitydifferent = true
+                        itemPanel.quanity = vv.quanity
+                    end
+                end
+
+                if istable(OOStable) then
+                    for _, vv in ipairs(OOStable) do
+                        if !IsValid(itemPanel) or vv != v2.ent then continue end
+
+                        itemPanel.outofstock = true
+                    end
+                end
+
+                if istable(discounttimertable) then
+                    for _, vv in ipairs(discounttimertable) do
+                        if !IsValid(itemPanel) or vv.itemname != v2.itemname then continue end
+
+                        itemPanel.discounted = true
+                        itemPanel.discounttime = vv.timeleft
+                    end
+                end
+
+                if istable(restocktimertable) then
+                    for _, vv in ipairs(restocktimertable) do
+                        if !IsValid(itemPanel) or vv.itemname != v2.ent then continue end
+
+                        itemPanel.outofstock = true
+                        itemPanel.restocktime = vv.timeleft
+                    end
                 end
 
                 local sanitizedtbl = RemoveStrings(v2, false)
@@ -1614,16 +1873,13 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- hook GetQuanityTable functiona and GetOOSTable function into panels
--- update clientside quanity text when serverside quanity table is updated (when quanity table is changed, send net message to client that invalidates panel layout and does GetQuanityTable and GetOOSTable)
+-- bug test ffs
 
 -- later:
 -- how to spawn npcs in an npc table and assign specific tables to them?
 -- how to (securely) send NPC table to GUI?
 -- add homepage (just restocked, most popular, discounts)
 -- add mLogs and Billy's Logs support
-
-
 
 
 

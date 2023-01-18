@@ -6,6 +6,12 @@ util.AddNetworkString("chicagoRP_NPCShop_sendoos")
 util.AddNetworkString("chicagoRP_NPCShop_getdiscount")
 util.AddNetworkString("chicagoRP_NPCShop_getquanity")
 util.AddNetworkString("chicagoRP_NPCShop_getoos")
+util.AddNetworkString("chicagoRP_NPCShop_senddiscounttimers")
+util.AddNetworkString("chicagoRP_NPCShop_getdiscounttimers")
+util.AddNetworkString("chicagoRP_NPCShop_sendrestocktimers")
+util.AddNetworkString("chicagoRP_NPCShop_getrestocktimers")
+util.AddNetworkString("chicagoRP_NPCShop_itemOOSalert")
+util.AddNetworkString("chicagoRP_NPCShop_updatequanity")
 
 local enabled = GetConVar("sv_chicagoRP_NPCShop_enable")
 local discountsenabled = GetConVar("sv_chicagoRP_NPCShop_discounts")
@@ -15,6 +21,8 @@ local discountdelay = GetConVar("sv_chicagoRP_NPCShop_discountdelay")
 local discounttable = {}
 local quanitytable = {}
 local OOStable = {}
+local discounttimers = {}
+local restocktimers = {}
 
 local function isempty(s)
     return s == nil or s == ""
@@ -55,6 +63,8 @@ local function RestockItem(ent)
 	RemoveByValue(OOStable, ent)
 
 	if timer.Exists("chicagoRP_NPCShop_OOS_" .. ent) then
+		restocktimers[ent].itemname = nil
+
 		timer.Remove("chicagoRP_NPCShop_OOS_" .. ent)
 	end
 end
@@ -63,7 +73,9 @@ local function DiscountRemove(ent)
 	RemoveByValue(discounttable, ent)
 
 	if timer.Exists("chicagoRP_NPCShop_discount_" .. ent) then
-		timer.Remove("chicagoRP_NPCShop_OOS_" .. ent)
+		discounttimers[ent].itemname = nil
+
+		timer.Remove("chicagoRP_NPCShop_discount_" .. ent)
 	end
 end
 
@@ -82,6 +94,7 @@ local function DiscountThink()
 	if isnumber(v.discounttime) then discounttime = v.discounttime end
 
 	timer.Create("chicagoRP_NPCShop_discount_" .. v.ent, discounttime, 1, DiscountRemove(v.ent))
+	table.insert(discounttimers, {itemname = v.ent})
 
 	local infotbl = {itemname = v.ent, discount = discountseed, discounttime = discounttime}
 
@@ -124,15 +137,81 @@ end)
 
 net.Receive("chicagoRP_NPCShop_sendoos", function(_, ply)
 	local nettable = nil
+	local mrgntbl = {}
 
-	if istable(discounttable) then
-		nettable = oostable
+	if istable(restocktimers) then
+		nettable = restocktimers
+
+		for _, v in ipairs(restocktimers) do
+			local timername = ("chicagoRP_NPCShop_OOS_" .. v.itemname)
+
+			if timer.Exists(timername) then
+
+				local TimeLeft = timer.TimeLeft(timername)
+
+				table.insert(mrgntbl, {timeleft = TimeLeft})
+			else
+				continue
+			end
+		end
+
+		local finaltbl = table.Merge(restocktimers, mrgntbl)
+
+        local JSONTable = util.TableToJSON(finaltbl)
+        local compTable = util.Compress(JSONTable)
+        local bytecount = #discounttable
+
+        net.Start("chicagoRP_NPCShop_getdiscounttimers")
+        net.WriteUInt(bytecount, 16)
+        net.WriteData(compTable, bytecount)
+		net.Send(ply)
+	end
+end)
+
+net.Receive("chicagoRP_NPCShop_senddiscounttimers", function(_, ply)
+	local nettable = nil
+	local mrgntbl = {}
+
+	if istable(discounttimers) then
+		nettable = discounttimers
+
+		for _, v in ipairs(discounttimers) do
+			local timername = ("chicagoRP_NPCShop_discount_" .. v.itemname)
+
+			if timer.Exists(timername) then
+
+				local TimeLeft = timer.TimeLeft(timername)
+
+				table.insert(mrgntbl, {timeleft = TimeLeft})
+			else
+				continue
+			end
+		end
+
+		local finaltbl = table.Merge(discounttimers, mrgntbl)
+
+        local JSONTable = util.TableToJSON(finaltbl)
+        local compTable = util.Compress(JSONTable)
+        local bytecount = #discounttable
+
+        net.Start("chicagoRP_NPCShop_getdiscounttimers")
+        net.WriteUInt(bytecount, 16)
+        net.WriteData(compTable, bytecount)
+		net.Send(ply)
+	end
+end)
+
+net.Receive("chicagoRP_NPCShop_sendrestocktimers", function(_, ply)
+	local nettable = nil
+
+	if istable(restocktimers) then
+		nettable = restocktimers
 
         local JSONTable = util.TableToJSON(discounttable)
         local compTable = util.Compress(JSONTable)
         local bytecount = #discounttable
 
-        net.Start("chicagoRP_NPCShop_sendoos")
+        net.Start("chicagoRP_NPCShop_getrestocktimers")
         net.WriteUInt(bytecount, 16)
         net.WriteData(compTable, bytecount)
 		net.Send(ply)
@@ -157,11 +236,19 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
 	local subtotal = 0
 
 	for _, v in ipairs(finalTable) do
-        local qtytbl = {v.itemname, v.quanity}
+        local qtytbl = {itemname = v.itemname, quanity = v.quanity}
 
         if !table.IsEmpty(OOStable) then
         	for _, v4 in ipairs(OOStable) do
-        		if v4.itemname == v.itemname then print("item out of stock") continue end
+        		if v4.itemname == v.itemname then
+        			print("item out of stock")
+
+			        net.Start("chicagoRP_NPCShop_itemOOSalert")
+			        net.WriteString(v.itemname)
+					net.Send(ply)
+
+        			continue
+        		end
         	end
         end
 
@@ -180,6 +267,7 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
                 for _, v3 in ipairs(GetItemCategory(v.itemname)) do
                 	if v.quanity => v3.quanity then
                 		table.insert(OOStable, v.itemname)
+                		table.insert(restocktimers, {itemname = v.itemname})
 
                 		timer.Create("chicagoRP_NPCShop_OOS_" .. v.itemname, v3.restock, 1, RestockItem(v.itemname))
                 	end
@@ -205,6 +293,9 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
 		button:SetPos(plypos)
 		button:Spawn()
 	end
+
+    net.Start("chicagoRP_NPCShop_updatequanity")
+	net.Send(ply)
 
 	ply:addMoney(-subtotal)
 end)
