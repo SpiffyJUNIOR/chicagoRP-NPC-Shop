@@ -1233,6 +1233,26 @@ local function ScrollingTextPanel(parent, x, y, w, h, text)
     return ScrollingTextPanel
 end
 
+local function InfoText(text, parent)
+    local labelText = parent:Add("DLabel")
+    labelText:SetSize(100, 200)
+    labelText:Dock(TOP)
+    labelText:SetFont("chicagoRP_NPCShop")
+    labelText:SetWrap(true)
+    labelText:SetText(text)
+    labelText:SetTextColor(whitecolor)
+
+    labelText:SizeToContentsY(10)
+
+    labelText.Think = nil
+
+    function labelText:Paint(w, h)
+        draw.DrawText(self:GetText(), "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
+
+        return nil
+    end
+end
+
 local function FancyModelPanel(parent, model, x, y, w, h, lightcolor)
     if lightcolor == nil then lightcolor = whitecolor end
     if model == nil or parent == nil then return end
@@ -1324,6 +1344,7 @@ local function ExpandedItemPanel(itemtbl)
     local textPanel = ScrollingTextPanel(itemFrame, 350, 0, 100, 100)
     local cartButton = AddCartButton(itemFrame, 500, 860, 100, 30)
     local quanitySel = QuanitySelector(itemFrame, 500, 820, 40, 20)
+    local infoText = InfoText(itemtbl.infotext, textPanel)
 
     if isAtt and istable(enttbl) and !isempty(bg_elements) then
         local weapon = itemtbl.wpn
