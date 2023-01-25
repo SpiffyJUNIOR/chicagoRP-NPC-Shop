@@ -841,8 +841,8 @@ local function CreateItemPanel(parent, itemtbl, w, h)
     local itemButton = parent:Add("DButton")
     itemButton:Dock(TOP)
     itemButton:DockMargin(0, 10, 30, 30)
-    -- itemButton:SetSize(w, h)
-    itemButton:SetPos(x, y)
+    itemButton:SetSize(w, h)
+    -- itemButton:SetPos(x, y)
 
     local printname = EntityPrintName(itemtbl)
 
@@ -866,7 +866,7 @@ local function CreateItemPanel(parent, itemtbl, w, h)
     function itemButton:Paint(w, h)
         draw.DrawText(printname, "chicagoRP_NPCShop", (w / 2) - 10, 10, whitecolor, TEXT_ALIGN_LEFT)
         draw.RoundedBox(4, 0, 0, w, h, graycolor)
-        surface.DrawTexturedRectRotated(20, y, w, 64, 0)
+        -- surface.DrawTexturedRectRotated(20, y, w, 64, 0)
 
         if self.discounted == true and isnumber(self.discountseed) then
             draw.DrawText("HOLY SHIT CRACKER THESE SOME GOOD DISCOUNTS!!!", "chicagoRP_NPCShop", 40, 40, purplecolor, TEXT_ALIGN_CENTER)
@@ -1242,7 +1242,7 @@ local function InfoText(text, parent)
     labelText:SetText(text)
     labelText:SetTextColor(whitecolor)
 
-    labelText:SizeToContentsY(10)
+    wikiTxtPanel:SetAutoStretchVertical(true)
 
     labelText.Think = nil
 
