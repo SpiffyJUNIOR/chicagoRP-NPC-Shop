@@ -148,7 +148,7 @@ local function isempty(s)
 end
 
 local function ismaterial(mat)
-    return type(mat) == nil or type(mat) == Material
+    return type(mat) == Material
 end
 
 local function BlurBackground(panel)
