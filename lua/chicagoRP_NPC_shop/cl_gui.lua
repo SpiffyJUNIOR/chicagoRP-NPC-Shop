@@ -46,619 +46,11 @@ L["stat.ShootVol"] = "Volume"
 L["stat.BarrelLength"] = "Weapon Length"
 L["stat.Penetration"] = "Penetration"
 
-local ArcCW_AutoStats = {
-    -- Attachments
-    ["MagExtender"]           = { "autostat.magextender", "override", false,       pr = 317 },
-    ["MagReducer"]            = { "autostat.magreducer",  "override", true,        pr = 316 },
-    ["Bipod"]                 = { "autostat.bipod",       false, false,            pr = 313 },
-    ["ScopeGlint"]            = { "autostat.glint",       "override", true,        pr = 255 },
-    ["Silencer"]              = { "autostat.silencer",    "override", false,       pr = 254 },
-    ["Override_NoRandSpread"] = { "autostat.norandspr",   "override", false,       pr = 253 },
-    ["Override_CanFireUnderwater"] = { "autostat.underwater",   "override", false, pr = 252 },
-    ["Override_ShootWhileSprint"] = { "autostat.sprintshoot",   "override", false, pr = 251 },
-    -- Multipliers
-    ["Mult_BipodRecoil"]      = { "autostat.bipodrecoil", false, true,             pr = 312 },
-    ["Mult_BipodDispersion"]  = { "autostat.bipoddisp",   false, true,             pr = 311 },
-    ["Mult_Damage"]           = { "autostat.damage",      "mult", false,           pr = 215 },
-    ["Mult_DamageMin"]        = { "autostat.damagemin",   "mult", false,           pr = 214 },
-    ["Mult_Range"]            = { "autostat.range",       "mult", false,           pr = 185 },
-    ["Mult_RangeMin"]         = { "autostat.rangemin",    "mult", false,           pr = 184 },
-    ["Mult_Penetration"]      = { "autostat.penetration", "mult", false,           pr = 213 },
-    ["Mult_MuzzleVelocity"]   = { "autostat.muzzlevel",   "mult", false,           pr = 212 },
-    ["Mult_PhysBulletMuzzleVelocity"] = { "autostat.muzzlevel",   "mult", false,   pr = 211 },
-    ["Mult_MeleeTime"]        = { "autostat.meleetime",   "mult", true,            pr = 145 },
-    ["Mult_MeleeDamage"]      = { "autostat.meleedamage", "mult", false,           pr = 144 },
-    ["Add_MeleeRange"]        = { "autostat.meleerange",  false,  false,           pr = 143 },
-    ["Mult_Recoil"]           = { "autostat.recoil",      "mult", true,            pr = 195 },
-    ["Mult_RecoilSide"]       = { "autostat.recoilside",  "mult", true,            pr = 194 },
-    ["Mult_RPM"]              = { "autostat.firerate",    "mult", false,           pr = 216 },
-    ["Mult_AccuracyMOA"]      = { "autostat.precision",   "mult", true,            pr = 186 },
-    ["Mult_HipDispersion"]    = { "autostat.hipdisp",     "mult", true,            pr = 155 },
-    ["Mult_SightsDispersion"] = { "autostat.sightdisp",   "mult", true,            pr = 154 },
-    ["Mult_MoveDispersion"]   = { "autostat.movedisp",    "mult", true,            pr = 153 },
-    ["Mult_JumpDispersion"]   = { "autostat.jumpdisp",    "mult", true,            pr = 152 },
-    ["Mult_ShootVol"]         = { "autostat.shootvol",    "mult", true,            pr = 115 },
-    ["Mult_SpeedMult"]        = { "autostat.speedmult",   "mult", false,           pr = 114 },
-    ["Mult_MoveSpeed"]        = { "autostat.speedmult",   "mult", false,           pr = 105 },
-    ["Mult_SightedSpeedMult"] = { "autostat.sightspeed",  "mult", false,           pr = 104 },
-    ["Mult_SightedMoveSpeed"] = { "autostat.sightspeed",  "mult", false,           pr = 103 },
-    ["Mult_ShootSpeedMult"]   = { "autostat.shootspeed",  "mult", false,           pr = 102 },
-    ["Mult_ReloadTime"]       = { "autostat.reloadtime",  "mult", true,            pr = 125 },
-    ["Add_BarrelLength"]      = { "autostat.barrellength","add",  true,            pr = 915 },
-    ["Mult_DrawTime"]         = { "autostat.drawtime",    "mult", true,            pr = 14 },
-    ["Mult_SightTime"]        = { "autostat.sighttime",   "mult", true,            pr = 335, flipsigns = true },
-    ["Mult_CycleTime"]        = { "autostat.cycletime",   "mult", true,            pr = 334 },
-    ["Mult_Sway"]             = { "autostat.sway",        "mult",  true,           pr = 353 },
-    ["Mult_HeatCapacity"]     = { "autostat.heatcap",     "mult", false,           pr = 10 },
-    ["Mult_HeatDissipation"]  = { "autostat.heatdrain",   "mult", false,           pr = 9 },
-    ["Mult_FixTime"]          = { "autostat.heatfix",     "mult", true,            pr = 8 },
-    ["Mult_HeatDelayTime"]    = { "autostat.heatdelay",   "mult", true,            pr = 7 },
-    ["Mult_MalfunctionMean"]  = { "autostat.malfunctionmean", "mult", false,       pr = 6 },
-    ["Add_ClipSize"]          = { "autostat.clipsize.mod",    "add", false,         pr = 315 },
-    ["Mult_ClipSize"]         = { "autostat.clipsize.mod",    "mult", false,        pr = 314 },
-
-    ["Override_Ammo"] = {"autostat.ammotype", "func", function(wep, val, att)
-        -- have to use the weapons table here because Primary.Ammo *is* modified when attachments are used
-        local weptbl = weapons.GetStored(wep)
-        if !istable(weptbl) or weptbl.Primary.Ammo == val then return end
-        return string.format(translate("autostat.ammotype"), string.lower(ArcCW.TranslateAmmo(val))), "infos"
-    end, pr = 316},
-    ["Override_ClipSize"] = {"autostat.clipsize", "func", function(wep, val, att)
-        local weptbl = weapons.GetStored(wep)
-        if !istable(weptbl) then return end
-        local ogclip = weptbl.RegularClipSize or (weptbl.Primary and weptbl.Primary.ClipSize) or 0
-        if ogclip < val then
-            return string.format(translate("autostat.clipsize"), val), "pros"
-        else
-            return string.format(translate("autostat.clipsize"), val), "cons"
-        end
-    end, pr = 317},
-    ["Bipod"] = {"autostat.bipod2", "func", function(wep, val, att)
-        local weptbl = weapons.GetStored(wep)
-        if val then
-            local recoil = 100 - math.Round((att.Mult_BipodRecoil or (istable(weptbl) and weptbl.BipodRecoil) or 1) * 100)
-            local disp = 100 - math.Round((att.Mult_BipodDispersion or (istable(weptbl) and weptbl.BipodDispersion) or 1) * 100)
-            return string.format(translate("autostat.bipod2"), disp, recoil), "pros"
-        else
-            return translate("autostat.nobipod"), "cons"
-        end
-    end, pr = 314},
-    ["UBGL"] = { "autostat.ubgl",  "override", false,        pr = 950 },
-    ["UBGL_Ammo"] = {"autostat.ammotypeubgl", "func", function(wep, val, att)
-        -- have to use the weapons table here because Primary.Ammo *is* modified when attachments are used
-        local weptbl = weapons.GetStored(wep)
-        if !istable(weptbl) then return end
-        return string.format(translate("autostat.ammotypeubgl"), string.lower(ArcCW.TranslateAmmo(val))), "infos"
-    end, pr = 949},
-}
-
-function meta:SizeToContentsY(addval) -- dlabel think resizing every frame so we make it only one time
-    if self.m_bYSized then return end
-
-    local w, h = self:GetContentSize()
-    if (!w || !h) then return end
-
-    self:SetTall(h + (addval or 0))
-
-    self.m_bYSized = true
-end
-
-local function isempty(s)
-    return s == nil or s == ""
-end
-
-local function ismaterial(mat)
-    return type(mat) == Material
-end
-
-local function BlurBackground(panel)
-    if (!IsValid(panel) or !panel:IsVisible()) then return end
-    local layers, density, alpha = 1, 1, 100
-    local x, y = panel:LocalToScreen(0, 0)
-    local FrameRate, Num, Dark = 1 / RealFrameTime(), 5, 0
-
-    surface.SetDrawColor(255, 255, 255, alpha)
-    surface.SetMaterial(blurMat)
-
-    for i = 1, Num do
-        blurMat:SetFloat("$blur", (i / layers) * density * Dynamic)
-        blurMat:Recompute()
-        render.UpdateScreenEffectTexture()
-        surface.DrawTexturedRect(-x, -y, ScrW(), ScrH())
-    end
-
-    surface.SetDrawColor(0, 0, 0, Dark * Dynamic)
-    surface.DrawRect(0, 0, panel:GetWide(), panel:GetTall())
-    Dynamic = math.Clamp(Dynamic + (1 / FrameRate) * 7, 0, 1)
-end
-
-local function GetWeaponBase(enttbl)
-    local sweptbl = weapons.GetStored(enttbl.ent)
-    local swepbase = sweptbl.Base
-
-    if !istable(sweptbl) then return end
-
-    if swepbase == ("arccw_base" or "weapon_base_kent") then
-        return "arccw"
-    elseif swepbase == ("arc9_go_base" or "arc9_base") then
-        return "arc9"
-    elseif swepbase == "cw_base" then
-        return "cw2"
-    elseif swepbase == "tfa_gun_base" then 
-        return "tfa"
-    else
-        return "default"
-    end
-end
-
-local function PrettifyString(str)
-    local cachestr = str
-    if string.StartWith(str, "%u") then return str end
-
-    local upperstr = string.gsub(cachestr, "^%l", string.upper)
-
-    return upperstr
-end
-
-local function PrettifyArcCWString(str)
-    if isempty(str) then return nil end
-    local indexedstr = L[str]
-
-    if !isempty(indexedstr) then
-        return indexedstr
-    end
-
-    return PrettifyString(str)
-end
-
-local function IsARC9Att(enttbl)
-    return ARC9 and !isempty(string.find(enttbl.ent, "arc9_att_"))
-end
-
-local function IsArcCWAtt(enttbl)
-    return ArcCW and !isempty(string.find(enttbl.ent, "acwatt_"))
-end
-
-local function IsCW2Att(enttbl) -- have to dl cw2 source
-    -- local atttbl = scripted_ents.GetStored(enttbl.ent)
-
-    -- if !istable(attbl) then return false end
-
-    -- return TFA and istable(atttbl.WeaponTable)
-end
-
-local function IsTFAAtt(enttbl)
-    local atttbl = scripted_ents.GetStored(enttbl.ent)
-
-    if !istable(attbl) then return false end
-
-    return TFA and istable(atttbl.WeaponTable) -- check scripted_ents.register att prefix
-end
-
-local function GetAttSlot(enttbl)
-    if !IsArcCWAtt(enttbl) then return end
-    local attbl = scripted_ents.GetStored(enttbl.ent)
-
-    return attbl.Slot
-end
-
-local function RemoveStrings(source, pretty) -- i'm not doing a full fucking table loop (nvm maybe i will)
-    if !istable(source) then return end
-
-    source[ent] = nil
-    source[infotext] = nil
-    source[printname] = nil
-    source[override] = nil
-    source[discount] = nil
-    source[discounttime] = nil
-    source[restock] = nil
-
-    if !pretty or pretty == nil then return source end
-
-    source[price] = nil
-    source[quanity] = nil
-    -- source[restock] = nil
-
-    return source
-end
-
-local function ArcCWBodygroup(swepclass, bglist)
-    local bgtable = nil
-    local sweptbl = weapons.GetStored(swepclass)
-
-    if istable(bglist) then
-        for _, v in ipairs(bglist) do
-            table.insert(bgtable, sweptbl.AttachmentElements.v.VMBodygroups)
-        end
-
-        return bgtable
-    else
-        return bglist
-    end
-end
-
-local function EntityPrintName(enttbl)
-    local printname = nil
-    local enttbl = scripted_ents.GetStored(itemtbl.ent)
-    local sweptbl = weapons.GetStored(enttbl.ent)
-
-    if istable(sweptbl) then
-        printname = sweptbl.PrintName
-
-        if ArcCW and truenames_enabled:GetBool() and sweptbl.Base == ("arccw_base" or "weapon_base_kent") then
-            printname = sweptbl.TrueName
-        end
-    elseif istable(enttbl) then
-        printname = enttbl.PrintName
-    else
-        print("Failed to parse entity printname, check your shop table!")
-    end
-
-    return printname
-end
-
-local function EntityModel(enttbl)
-    local model = nil
-    local enttbl = scripted_ents.GetStored(itemtbl.ent)
-    local sweptbl = weapons.GetStored(enttbl.ent)
-
-    if istable(sweptbl) then
-        model = sweptbl.ViewModel
-    elseif istable(enttbl) then
-        printname = enttbl.DroppedModel or enttbl.Mdl or enttbl.Model
-        print(enttbl)
-    else
-        model = "models/props_borealis/bluebarrel001.mdl"
-        print("Failed to parse entity model, check your shop table!")
-    end
-
-    return model
-end
-
-local function stattext(wep, att, i, k, dmgboth, flipsigns)
-    if !ArcCW_AutoStats[i] then return end
-    if i == "Mult_DamageMin" and dmgboth then return end
-
-    local stat = ArcCW_AutoStats[i]
-
-    local txt = ""
-    local str, eval = ArcCW.GetTranslation(stat[1]) or stat[1], stat[3]
-
-    if i == "Mult_Damage" and dmgboth then
-        str = ArcCW.GetTranslation("autostat.damageboth") or stat[1]
-    end
-
-    local tcon, tpro = eval and "cons" or "pros", eval and "pros" or "cons"
-
-    if stat[3] == "infos" then
-        tcon = "infos"
-    end
-
-    if stat[2] == "mult" and k != 1 then
-        local sign, percent = k > 1 and (flipsigns and "-" or "+") or (flipsigns and "+" or "-"), k > 1 and (k - 1) or (1 - k)
-        txt = sign .. tostr(math.Round(percent * 100, 2)) .. "% "
-        return txt .. str, k > 1 and tcon or tpro
-    elseif stat[2] == "add" and k != 0 then
-        local sign, state = k > 0 and (flipsigns and "-" or "+") or (flipsigns and "+" or "-"), k > 0 and k or -k
-        txt = sign .. tostr(state) .. " "
-        return txt .. str, k > 0 and tcon or tpro
-    elseif stat[2] == "override" and k == true then
-        return str, tcon
-    elseif stat[2] == "func" then
-        local a, b = stat[3](wep, k, att)
-        if a and b then return a, b end
-    end
-end
-
-local function GetAttStats(wep, enttable) -- check the table to make it filter compatible
-    local pros = {}
-    local cons = {}
-    local infos = {}
-
-    local atttable = scripted_ents.GetStored(enttable.ent) -- how do we get entity table
-
-    if !IsArcCWAtt(atttable) then return end
-
-    if enttable.override == true then
-        local stattbl = RemoveStrings(enttable, true)
-
-        return stattbl
-    end
-
-    table.Add(pros, atttable.Desc_Pros or {})
-    table.Add(cons, atttable.Desc_Cons or {})
-    table.Add(infos, atttable.Desc_Neutrals or {})
-
-    -- local override = hook.Run("ArcCW_PreAutoStats", wep, att, pros, cons, infos, toggle)
-    -- if override then return pros, cons, infos end
-
-    -- Localize attachment-specific text
-    local hasmaginfo = false
-    for i, v in pairs(pros) do
-        if v == "pro.magcap" then hasmaginfo = true end
-        pros[i] = ArcCW.TryTranslation(v)
-    end
-    for i, v in pairs(cons) do
-        if v == "con.magcap" then hasmaginfo = true end
-        cons[i] = ArcCW.TryTranslation(v)
-    end
-    for i, v in pairs(infos) do infos[i] = ArcCW.TryTranslation(v) end
-
-    if !atttable.AutoStats then return pros, cons, infos end
-
-    -- Process togglable stats
-    if atttable.ToggleStats then
-        --local toggletbl = atttable.ToggleStats[toggle or 1]
-        for ti, toggletbl in pairs(atttable.ToggleStats) do
-            -- show the first stat block (unless NoAutoStats), and all blocks with AutoStats
-            if toggletbl.AutoStats or (ti == (toggle or 1) and !toggletbl.NoAutoStats) then
-                local dmgboth = toggletbl.Mult_DamageMin and toggletbl.Mult_Damage and toggletbl.Mult_DamageMin == toggletbl.Mult_Damage
-                for i, stat in SortedPairsByMemberValue(ArcCW_AutoStats, "pr", true) do
-                    if !toggletbl[i] or toggletbl[i .. "_SkipAS"] then continue end
-                    local val = toggletbl[i]
-
-                    local txt, typ = stattext(wep, toggletbl, i, val, dmgboth, ArcCW_AutoStats[i].flipsigns)
-                    if !txt then continue end
-
-                    local prefix = (stat[2] == "override" and k == true) and "" or ("[" .. (toggletbl.AutoStatName or toggletbl.PrintName or ti) .. "] ")
-
-                    if typ == "pros" then
-                        table.insert(pros, prefix .. txt)
-                    elseif typ == "cons" then
-                        table.insert(cons, prefix .. txt)
-                    elseif typ == "infos" then
-                        table.insert(infos, prefix .. txt)
-                    end
-                end
-            end
-        end
-    end
-
-    local dmgboth = atttable.Mult_DamageMin and atttable.Mult_Damage and atttable.Mult_DamageMin == atttable.Mult_Damage
-
-    for i, _ in SortedPairsByMemberValue(ArcCW_AutoStats, "pr", true) do
-        if !atttable[i] or atttable[i .. "_SkipAS"] then continue end
-
-        -- Legacy support: If "Increased/Decreased magazine capacity" line exists, don't do our autostats version
-        if hasmaginfo and i == "Override_ClipSize" then continue end
-
-        if i == "UBGL" then 
-            table.insert(infos, translate("autostat.ubgl2"))
-        end
-
-        local txt, typ = stattext(wep, atttable, i, atttable[i], dmgboth, ArcCW_AutoStats[i].flipsigns)
-        if !txt then continue end
-
-        if typ == "pros" then
-            table.insert(pros, txt)
-        elseif typ == "cons" then
-            table.insert(cons, txt)
-        elseif typ == "infos" then
-            table.insert(infos, txt)
-        end
-    end
-
-    return pros, cons, infos
-end
-
-local function ArcCWStatString(str, statval)
-    if str == "Range" or str == "RangeMin" then
-        return tostring(statval) .. "m"
-    elseif str == "Penetration" then
-        return tostring(statval) .. "mm"
-    elseif str == "MuzzleVelocity" then
-        return tostring(statval) .. "m/s"
-    elseif str == "BarrelLength" then
-        return tostring(statval) .. "in"
-    elseif str == "Recoil" then
-        return statval * 20
-    elseif str == "RecoilSide" then
-        return statval * 20
-    elseif str == "Delay" then
-        return tostring(statval) .. "RPM"
-    elseif str == "ShootVol" then
-        return tostring(statval) .. "dB"
-    elseif str == "AccuracyMOA" then
-        return tostring(statval) .. " MOA"
-    elseif str == "SpeedMult" then
-        return statval * 20
-    elseif str == "SightedSpeedMult" then
-        return statval * 20
-    elseif str == "SightTime" then
-        return statval * 20
-    elseif str == "ShootSpeedMult" then
-        return statval * 20
-    else
-        print("didn't parse arccw stat string")
-    end
-end
-
-local function ArcCWFiremodesToString(firemodetbl)
-    local concattedstr = ""
-
-    for _, v in ipairs(firdemodetbl)
-        local mode = v.Mode
-        local str = nil
-
-        if mode == 0 then 
-            str = ArcCW.GetTranslation("fcg.safe.abbrev")
-        elseif mode == 1 then
-            str = ArcCW.GetTranslation("fcg.semi.abbrev")
-        elseif mode >= 2 then
-            str = ArcCW.GetTranslation("fcg.auto.abbrev")
-        elseif mode < 0 then
-            str = string.format(ArcCW.GetTranslation("fcg.burst.abbrev"), tostring(-mode)) 
-        end
-
-        concattedstr = concattedstr .. " " .. str
-    end
-
-    return concattedstr
-end
-
-local function ArcCWAmmoString(ammoname)
-    if isempty(ammoname) then return end
-
-    if ammoname == "pistol" then
-        return PrettifyString(ammoname)
-    elseif ammoname == "smg1"
-        return "Carbine"
-    elseif ammoname == "ar2"
-        return "Rifle"
-    elseif ammoname == "SniperPenetratedRound"
-        return "Sniper"
-    elseif ammoname == "buckshot"
-        return "Shotgun"
-    elseif ammoname == "357"
-        return "Magnum"
-    elseif ammoname == "smg1_grenade"
-        return "Grenade"
-    else
-        print("ammo string not parsed")
-    end
-end
-
-local function GetArcCWStats(wpnname, pretty)
-    local stattbl = {}
-    local wpntbl = weapons.GetStored(wpnname.ent)
-    local wpnparams = {"Damage", "DamageMin", "RangeMin", "Range", "Penetration", "MuzzleVelocity", "BarrelLength", "Primary.ClipSize", "Recoil", "RecoilSide", "Delay", "Firemodes", "ShootVol", "AccuracyMOA", "HipDispersion", "MoveDispersion", "JumpDispersion", "Primary.Ammo", "SpeedMult", "SightedSpeedMult", "SightTime", "ShootSpeedMult"}
-    
-    for _, v in ipairs(wpnparams) do
-        if pretty == nil or pretty == false then
-            local paramtbl = {name = v, stat = wpntbl.[v]}
-
-            table.insert(stattbl, paramtbl)
-
-            continue
-        elseif pretty == true
-            local parsedstat = ArcCWStatString(v, wpntbl.[v])
-
-            if v == "Firemodes" then
-                parsedstat = ArcCWFiremodesToString(wpntbl.[v])
-            end
-
-            if v == "Primary.Ammo" then
-                parsedstat = ArcCWAmmoString(wpntbl.[v])
-            end
-
-
-            local paramtbl = {name = v, stat = parsedstat}
-
-            table.insert(stattbl, paramtbl)
-
-            continue
-        end
-    end
-
-    return stattbl
-end
-
-local function GetStats(itemtbl)
-    local stattbl = nil
-    local enttbl = scripted_ents.GetStored(itemtbl.ent) -- how do we get entity table
-    local sweptbl = weapons.GetStored(itemtbl.ent)
-
-    if istable(sweptbl) then
-        for _, v in ipairs(wpnparams) do
-            if isempty(sweptbl.v) then continue end
-
-            table.insert(stattbl, sweptbl.v)
-        end
-    elseif istable(enttbl) then
-        -- for _, v in ipairs(attparams) do
-        --     if isempty(sweptbl.v) then continue end
-
-        --     table.insert(stattbl, sweptbl.v)
-        -- end
-        if itemtbl.override == true then
-            stattbl = RemoveStrings(itemtbl, true)
-
-            return stattbl
-        elseif IsArcCWAtt(enttbl) then
-            return nil
-        end
-        print(enttbl)
-    else
-        print("Failed to parse stats, check your code or report this error to the github!")
-    end
-end
-
-local function SmoothScrollBar(vbar) -- why
-    vbar.nInit = vbar.Init
-    function vbar:Init()
-        self:nInit()
-        self.DeltaBuffer = 0
-    end
-
-    vbar.nSetUp = vbar.SetUp
-    function vbar:SetUp(_barsize_, _canvassize_)
-        self:nSetUp(_barsize_, _canvassize_)
-        self.BarSize = _barsize_
-        self.CanvasSize = _canvassize_ - _barsize_
-        if (1 > self.CanvasSize) then self.CanvasSize = 1 end
-    end
-
-    vbar.nAddScroll = vbar.AddScroll
-    function vbar:AddScroll(dlta)
-        self:nAddScroll(dlta)
-
-        self.DeltaBuffer = OldScroll + (dlta * (self:GetSmoothScroll() && 75 || 50))
-        if (self.DeltaBuffer < -self.BarSize) then self.DeltaBuffer = -self.BarSize end
-        if (self.DeltaBuffer > (self.CanvasSize + self.BarSize)) then self.DeltaBuffer = self.CanvasSize + self.BarSize end
-    end
-
-    vbar.nSetScroll = vbar.SetScroll
-    function vbar:SetScroll(scrll)
-        self:nSetScroll(scrll)
-
-        if (scrll > self.CanvasSize) then scrll = self.CanvasSize end
-        if (0 > scrll ) then scrll = 0 end
-        self.Scroll = scrll
-    end
-
-    function vbar:AnimateTo(scrll, length, delay, ease)
-        self.DeltaBuffer = scrll
-    end
-
-    function vbar:GetDeltaBuffer()
-        if (self.Dragging) then self.DeltaBuffer = self:GetScroll() end
-        if (!self.Enabled) then self.DeltaBuffer = 0 end
-        return self.DeltaBuffer
-    end
-
-    vbar.nThink = vbar.Think
-    function vbar:Think()
-        self:nThink()
-        if (!self.Enabled) then return end
-
-        local FrameRate = (self.CanvasSize / 10) > math.abs(self:GetDeltaBuffer() - self:GetScroll()) && 2 || 5
-        self:SetScroll(Lerp(FrameTime() * (self:GetSmoothScroll() && FrameRate || 10), self:GetScroll(), self:GetDeltaBuffer()))
-
-        if (self.CanvasSize > self.DeltaBuffer && self.Scroll == self.CanvasSize) then self.DeltaBuffer = self.CanvasSize end
-        if (0 > self.DeltaBuffer && self.Scroll == 0) then self.DeltaBuffer = 0 end
-    end
-end
-
-surface.CreateFont("chicagoRP_NPCShop", {
-    font = "Roboto",
-    size = 36,
-    weight = 500,
-    blursize = 0,
-    scanlines = 0,
-    antialias = true
-})
-
 hook.Add("HUDShouldDraw", "chicagoRP_NPCShop_HideHUD", function()
     if HideHUD == true then
         return false
     end
 end)
-
-local function GetModelIcon(enttbl)
-    local modelicon = nil
-
-    return modelicon
-end
 
 local function SpawnIcon(parent, model, x, y, w, h)
     local SpawnIc = vgui.Create("SpawnIcon", parent)
@@ -733,7 +125,7 @@ local function CategoryPanel(parent, x, y, w, h)
         draw.RoundedBox(0, 0, 0, w, h, Color(76, 76, 74, 150))
     end
 
-    SmoothScrollBar(categoryScrollBar)
+    chicagoRP_NPCShop.SmoothScrollBar(categoryScrollBar)
 
     return categoryScrollPanel
 end
@@ -829,7 +221,7 @@ local function InfoParentPanel(parent, itemtbl, x, y, w, h)
         end
     end
 
-    SmoothScrollBar(parentScrollBar)
+    chicagoRP_NPCShop.SmoothScrollBar(parentScrollBar)
 
     return parentScrPanel
 end
@@ -844,7 +236,7 @@ local function CreateItemPanel(parent, itemtbl, w, h)
     itemButton:SetSize(w, h)
     -- itemButton:SetPos(x, y)
 
-    local printname = EntityPrintName(itemtbl)
+    local printname = chicagoRP_NPCShop.EntityPrintName(itemtbl)
 
     local maxquanity = self.quanity or v.quanity
 
@@ -888,7 +280,7 @@ local function CreateItemPanel(parent, itemtbl, w, h)
         local expandedPanel = ExpandedItemPanel(itemtbl)
     end
 
-    local spawnicon = OptimizedSpawnIcon(itemButton, EntityModel(itemtbl), 100, 50, 64, 64)
+    local spawnicon = OptimizedSpawnIcon(itemButton, chicagoRP_NPCShop.EntityModel(itemtbl), 100, 50, 64, 64)
 
     spawnicon.Think = nil
 
@@ -896,25 +288,24 @@ local function CreateItemPanel(parent, itemtbl, w, h)
     local quanitySel = QuanitySelector(parent, 200, 0, 40, 20)
     local statPanel = InfoParentPanel(parent, itemtbl, 2, 100, w - 4, 100)
 
-    local stattbl = GetStats(itemtbl)
-    local pros, cons, infos = GetAttStats(itemtbl.wpn, itemtbl.ent)
+    local stattbl = chicagoRP_NPCShop.GetStats(itemtbl)
 
-    if GetWeaponBase(itemtbl) == "arccw" then
-        stattbl = table.Add(itemtbl, GetArcCWStats(itemtbl, true))
+    if chicagoRP_NPCShop.GetWeaponBase(itemtbl) == "arccw" then
+        stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetArcCWStats(itemtbl, true))
     end
 
     if istable(stattbl) then
         for _, v in ipairs(stattbl) do
-            if isempty(v) then continue end
+            if chicagoRP_NPCShop.isempty(v) then continue end
 
             InfoTextPanel(parent, v, whitecolor, (w / 2) - 4, 25)
         end
     elseif !istable(stattbl) or stattbl == nil then
-        local pros, cons, infos = GetAttStats(itemtbl.wpn, itemtbl.ent)
+        local pros, cons, infos = chicagoRP_NPCShop.GetAttStats(itemtbl.wpn, itemtbl.ent)
 
         if istable(pros) then
             for _, v2 in ipairs(pros) do
-                if isempty(v2) then continue end
+                if chicagoRP_NPCShop.isempty(v2) then continue end
 
                 InfoTextPanel(parent, v2, whitecolor, (w / 2) - 4, 25)
             end
@@ -922,7 +313,7 @@ local function CreateItemPanel(parent, itemtbl, w, h)
 
         if istable(cons) then
             for _, v2 in ipairs(cons) do
-                if isempty(v2) then continue end
+                if chicagoRP_NPCShop.isempty(v2) then continue end
 
                 InfoTextPanel(parent, v2, whitecolor, (w / 2) - 4, 25)
             end
@@ -930,7 +321,7 @@ local function CreateItemPanel(parent, itemtbl, w, h)
 
         if istable(infos) then
             for _, v2 in ipairs(infos) do
-                if isempty(v2) then continue end
+                if chicagoRP_NPCShop.isempty(v2) then continue end
 
                 InfoTextPanel(parent, v2, whitecolor, (w / 2) - 4, 25)
             end
@@ -998,7 +389,7 @@ local function ItemScrollPanel(parent, x, y, w, h)
         draw.RoundedBox(0, 0, 0, w, h, Color(76, 76, 74, 150))
     end
 
-    SmoothScrollBar(itemScrollBar)
+    chicagoRP_NPCShop.SmoothScrollBar(itemScrollBar)
 
     return itemScrPanel
 end
@@ -1208,7 +599,7 @@ local function FilterBox(parent, x, y, w, h)
 end
 
 local function ScrollingTextPanel(parent, x, y, w, h, text)
-    if isempty(text) then text = "Text is empty!" end
+    if chicagoRP_NPCShop.isempty(text) then text = "Text is empty!" end
 
     local textScrollPanel = vgui.Create("DScrollPanel", parent)
     textScrollPanel:SetPos(x, y)
@@ -1226,7 +617,7 @@ local function ScrollingTextPanel(parent, x, y, w, h, text)
         draw.RoundedBox(0, 0, 0, w, h, Color(76, 76, 74, 150))
     end
 
-    SmoothScrollBar(textScrollBar)
+    chicagoRP_NPCShop.SmoothScrollBar(textScrollBar)
 
     -- how do we do textwrap and line breaks?
 
@@ -1262,10 +653,10 @@ local function FancyModelPanel(parent, model, x, y, w, h, lightcolor)
     parentPanel:SetPos(x, y)
 
     function parentPanel:Paint(w, h)
-        surface.SetMaterial(nil) -- how do we get cubemap from map?
+        -- surface.SetMaterial(nil) -- how do we get cubemap from map?
         -- surface.DrawTexturedRectUV(x, y, w, h, 0, 0, 1, 1)
         surface.DrawTexturedRectRotated(x, y, w, h, 0) -- how do we make the cubemap rotate with model orientation?
-        BlurBackground(self)
+        chicagoRP.BlurBackground(self)
     end
 
     local modelPanel = vgui.Create("DAdjustableModelPanel", parentPanel)
@@ -1303,7 +694,7 @@ local function ExpandedItemPanel(itemtbl)
     itemFrame:SetVisible(true)
     itemFrame:SetDraggable(true)
     itemFrame:ShowCloseButton(true)
-    itemFrame:SetTitle(EntityPrintName(entname))
+    itemFrame:SetTitle(chicagoRP_NPCShop.EntityPrintName(entname))
     itemFrame:ParentToHUD() -- needed?
     HideHUD = true
 
@@ -1332,11 +723,11 @@ local function ExpandedItemPanel(itemtbl)
     end
 
     function itemFrame:Paint(w, h)
-        BlurBackground(self)
+        chicagoRP.BlurBackground(self)
     end
 
-    local model = EntityModel(entname)
-    local isAtt = IsArcCWAtt(itemtbl)
+    local model = chicagoRP_NPCShop.EntityModel(entname)
+    local isAtt = chicagoRP_NPCShop.IsArcCWAtt(itemtbl)
     local enttbl = scripted_ents.GetStored(entname)
     local bg_elements = enttbl.ActivateElements
 
@@ -1346,11 +737,11 @@ local function ExpandedItemPanel(itemtbl)
     local quanitySel = QuanitySelector(itemFrame, 500, 820, 40, 20)
     local infoText = InfoText(itemtbl.infotext, textPanel)
 
-    if isAtt and istable(enttbl) and !isempty(bg_elements) then
+    if isAtt and istable(enttbl) and !chicagoRP_NPCShop.isempty(bg_elements) then
         local weapon = itemtbl.wpn
         local parenttbl = weapons.GetStored(weapon)
 
-        local bodygroups = ArcCWBodygroup(weapon, bg_elements)
+        local bodygroups = chicagoRP_NPCShop.ArcCWBodygroup(weapon, bg_elements)
 
         modelPanel:SetModel(parenttbl.Model)
 
@@ -1394,7 +785,7 @@ local function CartItemPanel(parent, itemtbl, w, h)
     cartItem:Dock(TOP)
     cartItem:DockMargin(0, 0, 0, 10)
 
-    local printname = EntityPrintName(itemtbl)
+    local printname = chicagoRP_NPCShop.EntityPrintName(itemtbl)
 
     function cartItem:Paint(w, h)
         draw.DrawText(printname, "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
@@ -1492,7 +883,7 @@ local function CartViewPanel(parent, x, y, w, h)
         draw.RoundedBox(0, 0, 0, w, h, Color(76, 76, 74, 150))
     end
 
-    SmoothScrollBar(cartScrollBar)
+    chicagoRP_NPCShop.SmoothScrollBar(cartScrollBar)
 
     return cartScrollPanel
 end
@@ -1654,7 +1045,7 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
     end
 
     function motherFrame:Paint(w, h)
-        -- BlurBackground(self)
+        -- chicagoRP.BlurBackground(self)
     end
 
     local catScrollPanel = CategoryPanel(motherFrame, 0, 0, 100, screenheight / 1.2)
@@ -1708,7 +1099,7 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
             for _, v2 in ipairs(chicagoRP_NPCShop[v.name]) do
                 local itemPanel = nil
 
-                if istable(filtertable) and !isempty(filtertable) then
+                if istable(filtertable) and !table.IsEmpty(filtertable) then
                     for _, v5 in ipairs(filtertable) do -- how do we get args and compare them?
                         if v5.typ != v.v5.typ and v5.inc != true then continue end -- for strings
                         if v5.parse != v.v5.typ then continue end -- for numbers
@@ -1766,19 +1157,19 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                     end
                 end
 
-                local sanitizedtbl = RemoveStrings(v2, false)
+                local sanitizedtbl = chicagoRP_NPCShop.RemoveStrings(v2, false)
                 local filterLayout = {}
 
-                if GetWeaponBase(v2) == "arccw" then
-                    local wpntable = table.Add(v2, GetArcCWStats(v2))
-                    local scrubbedtbl = RemoveStrings(wpntable, false)
+                if chicagoRP_NPCShop.GetWeaponBase(v2) == "arccw" then
+                    local wpntable = table.Add(v2, chicagoRP_NPCShop.GetArcCWStats(v2))
+                    local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
 
                     sanitizedtbl = scrubbedtbl
                 end
 
                 for _, v3 in ipairs(sanitizedtbl) do
                     if isstring(v3) then
-                        local checkBox = FilterCheckBox(filterPanel, PrettifyString(v3), 40, 20)
+                        local checkBox = FilterCheckBox(filterPanel, chicagoRP_NPCShop.PrettifyString(v3), 40, 20)
 
                         function checkBox:OnChange(bVal)
                             filtertable[v3] = filtertable[v3] or {}

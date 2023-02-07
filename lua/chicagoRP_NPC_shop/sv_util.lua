@@ -24,10 +24,6 @@ local OOStable = {}
 local discounttimers = {}
 local restocktimers = {}
 
-local function isempty(s)
-    return s == nil or s == ""
-end
-
 local function KeyFromValue(tbl, val)
 	for key, value in ipairs(tbl) do
 		if (value == val) then return key end
