@@ -3,6 +3,8 @@ local OpenMotherFrame = nil
 local OpenShopPanel = nil
 local OpenCartPanel = nil
 local OpenItemFrame = nil
+
+local servertable = nil
 local carttable = {}
 local filtertable = {}
 local discounttable = nil
@@ -13,6 +15,7 @@ local restocktimertable = nil
 local discounttimers = nil
 local restocktimers = nil
 local Dynamic = 0
+
 local whitecolor = Color(255, 255, 255, 255)
 local blackcolor = Color(0, 0, 0, 255)
 local graycolor = Color(20, 20, 20, 200)
@@ -20,6 +23,7 @@ local slightyellowcolor = Color(253, 255, 180, 255)
 local slightbluecolor = Color(225, 255, 250, 255)
 local purplecolor = Color(200, 200, 30, 255) -- probably not purple
 local reddebug = Color(200, 10, 10, 150)
+
 local enabled = GetConVar("cl_chicagoRP_NPCShop_enable")
 local truenames_enabled = GetConVar("arccw_truenames")
 local blurMat = Material("pp/blurscreen")
@@ -906,86 +910,6 @@ net.Receive("chicagoRP_NPCShop_updatequanity", function()
     end
 end)
 
-local function GetDiscountTable()
-    net.Start("chicagoRP_NPCShop_senddiscount")
-    net.SendToServer()
-end
-
-local function GetQuanityTable()
-    net.Start("chicagoRP_NPCShop_sendquanity")
-    net.SendToServer()
-end
-
-local function GetOOSTable()
-    net.Start("chicagoRP_NPCShop_sendoos")
-    net.SendToServer()
-end
-
-local function GetDiscountTimers()
-    net.Start("chicagoRP_NPCShop_sendoos")
-    net.SendToServer()
-end
-
-local function GetRestockTimers()
-    net.Start("chicagoRP_NPCShop_sendoos")
-    net.SendToServer()
-end
-
-net.Receive("chicagoRP_NPCShop_getdiscount", function()
-    local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
-    local compTable = net.ReadData(bytecount) -- Gets back our compressed message
-    local decompTable = util.Decompress(compTable)
-    local finalTable = util.JSONToTable(decompTable)
-
-    if istable(finalTable) then 
-        discounttable = finalTable
-    end
-end)
-
-net.Receive("chicagoRP_NPCShop_getquanity", function()
-    local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
-    local compTable = net.ReadData(bytecount) -- Gets back our compressed message
-    local decompTable = util.Decompress(compTable)
-    local finalTable = util.JSONToTable(decompTable)
-
-    if istable(finalTable) then 
-        quanitytable = finalTable
-    end
-end)
-
-net.Receive("chicagoRP_NPCShop_getoos", function()
-    local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
-    local compTable = net.ReadData(bytecount) -- Gets back our compressed message
-    local decompTable = util.Decompress(compTable)
-    local finalTable = util.JSONToTable(decompTable)
-
-    if istable(finalTable) then 
-        OOStable = finalTable
-    end
-end)
-
-net.Receive("chicagoRP_NPCShop_getdiscounttimers", function()
-    local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
-    local compTable = net.ReadData(bytecount) -- Gets back our compressed message
-    local decompTable = util.Decompress(compTable)
-    local finalTable = util.JSONToTable(decompTable)
-
-    if istable(finalTable) then 
-        discounttimertable = finalTable
-    end
-end)
-
-net.Receive("chicagoRP_NPCShop_getrestocktimers", function()
-    local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
-    local compTable = net.ReadData(bytecount) -- Gets back our compressed message
-    local decompTable = util.Decompress(compTable)
-    local finalTable = util.JSONToTable(decompTable)
-
-    if istable(finalTable) then 
-        restocktimertable = finalTable
-    end
-end)
-
 net.Receive("chicagoRP_NPCShop_GUI", function()
     local ply = LocalPlayer()
     if IsValid(OpenMotherFrame) then OpenMotherFrame:Close() return end
@@ -1000,6 +924,11 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
     local closebool = net.ReadBool()
 
     if closebool == false then return end
+
+    local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
+    local compTable = net.ReadData(bytecount) -- Gets back our compressed message
+    local decompTable = util.Decompress(compTable)
+    local finaltable = util.JSONToTable(decompTable)
 
     local screenwidth = ScrW()
     local screenheight = ScrH()
@@ -1016,9 +945,12 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
 
     carttable = {}
 
-    GetDiscountTable()
-    GetQuanityTable()
-    GetOOSTable()
+    servertable = finaltable
+    discounttable = finalTable.discounttable
+    quanitytable = finalTable.quanitytable
+    OOStable = finalTable.OOStable
+    discounttimertable = finalTable.discounttimers
+    restocktimertable = finalTable.restocktimers
 
     chicagoRP.PanelFadeIn(motherFrame, 0.15)
 

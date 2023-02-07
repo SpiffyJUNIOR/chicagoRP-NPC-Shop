@@ -36,7 +36,7 @@ local function EntityModel(enttbl)
     return model
 end
 
-local function GetModelIcon(enttbl)
+function chicagoRP_NPCShop.GetModelIcon(enttbl)
     local modelicon = nil
 
     return modelicon
