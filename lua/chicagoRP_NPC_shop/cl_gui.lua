@@ -4,16 +4,17 @@ local OpenShopPanel = nil
 local OpenCartPanel = nil
 local OpenItemFrame = nil
 
-local servertable = nil
 local carttable = {}
 local filtertable = {}
+local discounttimers = nil
+local restocktimers = nil
+local discounttimers = nil
+local restocktimers = nil
+
+local servertable = nil
 local discounttable = nil
 local quanitytable = nil
 local OOStable = nil
-local discounttimertable = nil
-local restocktimertable = nil
-local discounttimers = nil
-local restocktimers = nil
 local Dynamic = 0
 
 local whitecolor = Color(255, 255, 255, 255)
@@ -55,6 +56,18 @@ hook.Add("HUDShouldDraw", "chicagoRP_NPCShop_HideHUD", function()
         return false
     end
 end)
+
+local function RemoveTimers(tbl)
+    if !istable(tbl) or table.IsEmpty(tbl) then return end
+
+    for _, entname in ipairs(tbl) do
+        if timer.Exists("chicagoRP_NPCShop_discount_" .. entname) then
+            timer.Remove("chicagoRP_NPCShop_discount_" .. entname)
+        else
+            continue
+        end
+    end
+end
 
 local function SpawnIcon(parent, model, x, y, w, h)
     local SpawnIc = vgui.Create("SpawnIcon", parent)
@@ -231,12 +244,12 @@ local function InfoParentPanel(parent, itemtbl, x, y, w, h)
 end
 
 local function CreateItemPanel(parent, itemtbl, w, h)
-    if itemtbl == nil or parent == nil then return end
+    if !IsValid(parent) or itemtbl == nil or table.IsEmpty(itemtbl) then return end
 
     -- local itemButton = vgui.Create("DButton", parent)
     local itemButton = parent:Add("DButton")
-    itemButton:Dock(TOP)
-    itemButton:DockMargin(0, 10, 30, 30)
+    -- itemButton:Dock(TOP)
+    -- itemButton:DockMargin(0, 10, 30, 30)
     itemButton:SetSize(w, h)
     -- itemButton:SetPos(x, y)
 
@@ -250,13 +263,13 @@ local function CreateItemPanel(parent, itemtbl, w, h)
     if itemButton.discounttime == true and isnumber(itemButton.discounttime) then
         discounttimer = timer.Create("chicagoRP_NPCShop_discount_" .. itemtbl.ent, itemButton.discounttime, 1)
 
-        table.insert(discounttimertable, itemtbl.ent)
+        table.insert(discounttimers, itemtbl.ent)
     end
 
     if itemButton.outofstock == true and isnumber(itemButton.restocktime) then
         restocktimer = timer.Create("chicagoRP_NPCShop_OOS_" .. itemtbl.ent, itemButton.restocktime, 1)
 
-        table.insert(restocktimertable, itemtbl.ent)
+        table.insert(restocktimers, itemtbl.ent)
     end
 
     function itemButton:Paint(w, h)
@@ -298,16 +311,16 @@ local function CreateItemPanel(parent, itemtbl, w, h)
         stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetArcCWStats(itemtbl, true))
     end
 
-    if istable(stattbl) then
+    if istable(stattbl) and !table.IsEmpty(stattbl) then
         for _, v in ipairs(stattbl) do
             if chicagoRP_NPCShop.isempty(v) then continue end
 
             InfoTextPanel(parent, v, whitecolor, (w / 2) - 4, 25)
         end
-    elseif !istable(stattbl) or stattbl == nil then
+    elseif (!istable(stattbl) and !table.IsEmpty(stattbl)) or stattbl == nil then
         local pros, cons, infos = chicagoRP_NPCShop.GetAttStats(itemtbl.wpn, itemtbl.ent)
 
-        if istable(pros) then
+        if istable(pros) and !table.IsEmpty(pros) then
             for _, v2 in ipairs(pros) do
                 if chicagoRP_NPCShop.isempty(v2) then continue end
 
@@ -315,7 +328,7 @@ local function CreateItemPanel(parent, itemtbl, w, h)
             end
         end
 
-        if istable(cons) then
+        if istable(cons) and !table.IsEmpty(cons) then
             for _, v2 in ipairs(cons) do
                 if chicagoRP_NPCShop.isempty(v2) then continue end
 
@@ -323,7 +336,7 @@ local function CreateItemPanel(parent, itemtbl, w, h)
             end
         end
 
-        if istable(infos) then
+        if istable(infos) and !table.IsEmpty(infos) then
             for _, v2 in ipairs(infos) do
                 if chicagoRP_NPCShop.isempty(v2) then continue end
 
@@ -353,7 +366,7 @@ local function CreateItemPanel(parent, itemtbl, w, h)
 
     function cartButton:DoClick()
         local quanity = self.quanity or v.quanity -- how do we do if quanity > server_quanity then func return end?
-        local finaltable = {itemname = itemtbl, quanity = quanity}
+        local finaltable = {itemname = itemtbl.ent, quanity = quanity}
 
         if self.outofstock == true then
             print("This item is out of stock!")
@@ -741,7 +754,7 @@ local function ExpandedItemPanel(itemtbl)
     local quanitySel = QuanitySelector(itemFrame, 500, 820, 40, 20)
     local infoText = InfoText(itemtbl.infotext, textPanel)
 
-    if isAtt and istable(enttbl) and !chicagoRP_NPCShop.isempty(bg_elements) then
+    if isAtt and istable(enttbl) and !table.IsEmpty(enttbl) and !chicagoRP_NPCShop.isempty(bg_elements) then
         local weapon = itemtbl.wpn
         local parenttbl = weapons.GetStored(weapon)
 
@@ -899,11 +912,31 @@ net.Receive("chicagoRP_NPCShop_itemOOSalert", function()
     local itemstring = net.ReadString()
 
     ply:ChatPrint("Item " .. itemstring .. " is out of stock!")
+
+    if !istable(carttable) or table.IsEmpty(carttable) then return end
+
+    for k, v in ipairs(carttable) do
+        if itemstring != v.ent then continue end
+
+        table.remove(carttable, k)
+    end
 end)
 
 net.Receive("chicagoRP_NPCShop_updatequanity", function()
     local ply = LocalPlayer()
-    if !IsValid(ply) or !ply:Alive() or !IsValid(OpenMotherFrame) or !IsValid(OpenShopPanel) then return end
+    if !IsValid(ply) or !IsValid(OpenMotherFrame) or !IsValid(OpenShopPanel) then return end
+
+    local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
+    local compTable = net.ReadData(bytecount) -- Gets back our compressed message
+    local decompTable = util.Decompress(compTable)
+    local finaltable = util.JSONToTable(decompTable)
+
+    servertable = finaltable
+    discounttable = finaltable.discounttable
+    quanitytable = finaltable.quanitytable
+    OOStable = finaltable.OOStable
+    discounttimers = finaltable.discounttimers
+    restocktimers = finaltable.restocktimers
 
     if IsValid(OpenShopPanel) then
         OpenShopPanel:InvalidateLayout()
@@ -946,11 +979,11 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
     carttable = {}
 
     servertable = finaltable
-    discounttable = finalTable.discounttable
-    quanitytable = finalTable.quanitytable
-    OOStable = finalTable.OOStable
-    discounttimertable = finalTable.discounttimers
-    restocktimertable = finalTable.restocktimers
+    discounttable = finaltable.discounttable
+    quanitytable = finaltable.quanitytable
+    OOStable = finaltable.OOStable
+    discounttimers = finaltable.discounttimers
+    restocktimers = finaltable.restocktimers
 
     chicagoRP.PanelFadeIn(motherFrame, 0.15)
 
@@ -961,6 +994,9 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
         if IsValid(self) then
             chicagoRP.PanelFadeOut(motherFrame, 0.15)
         end
+
+        RemoveTimers(discounttimers)
+        RemoveTimers(restocktimers)
 
         HideHUD = false
     end
@@ -995,38 +1031,27 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
         local shopScrollPanel = ItemScrollPanel(motherFrame, 100, 200, 700, 500)
         shopScrollPanel:Hide()
 
+        local shopPanelLayout = vgui.Create("DIconLayout", shopScrollPanel)
+        shopPanelLayout:Dock(FILL)
+        shopPanelLayout:SetSpaceY(5) -- Sets the space in between the panels on the Y Axis by 5
+        shopPanelLayout:SetSpaceX(5) -- Sets the space in between the panels on the X Axis by 5
+        shopPanelLayout:Hide()
+
         for _, v3 in ipairs(browsingPanels) do
             v3:Hide()
         end
 
-        local oPerformLayout = shopScrollPanel.PerformLayout
+        local oPerformLayout = shopPanelLayout.PerformLayout
 
-        function shopScrollPanel:PerformLayout(w, h)
+        function shopPanelLayout:PerformLayout(w, h)
             oPerformLayout(w, h)
 
             for _, v4 in ipairs(self:GetChildren()) do
                 v4:Remove()
             end
 
-            if istable(discounttimertable)
-                for _, vvv in ipairs(discounttimertable) do
-                    if timer.Exists("chicagoRP_NPCShop_discount_" .. vvv) then
-                        timer.Remove("chicagoRP_NPCShop_discount_" .. vvv)
-                    else
-                        continue
-                    end
-                end
-            end
-
-            if istable(restocktimertable)
-                for _, vvv in ipairs(restocktimertable) do
-                    if timer.Exists("chicagoRP_NPCShop_OOS_" .. vvv) then
-                        timer.Remove("chicagoRP_NPCShop_OOS_" .. vvv)
-                    else
-                        continue
-                    end
-                end
-            end
+            RemoveTimers(discounttimers)
+            RemoveTimers(restocktimers)
 
             for _, v2 in ipairs(chicagoRP_NPCShop[v.name]) do
                 local itemPanel = nil
@@ -1039,13 +1064,13 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                         if v5.max > v.v5.parse then continue end -- for numbers
                         if isstring(searchstring) and IsValid(string.match(v.ent, searchstring)) then continue end
 
-                        itemPanel = CreateItemPanel(shopScrollPanel, v2, w, h)
+                        itemPanel = CreateItemPanel(shopPanelLayout, v2, w, h)
                     end
                 else
-                    itemPanel = CreateItemPanel(shopScrollPanel, v2, w, h)
+                    itemPanel = CreateItemPanel(shopPanelLayout, v2, w, h)
                 end
 
-                if istable(discounttable) then
+                if !table.IsEmpty(discounttable) then
                     for _, vv in ipairs(discounttable) do
                         if !IsValid(itemPanel) or vv.itemname != v2.ent then continue end
 
@@ -1054,7 +1079,7 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                     end
                 end
 
-                if istable(quanitytable) then
+                if !table.IsEmpty(quanitytable) then
                     for _, vv in ipairs(quanitytable) do
                         if !IsValid(itemPanel) or vv.itemname != v2.ent then continue end
 
@@ -1063,7 +1088,7 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                     end
                 end
 
-                if istable(OOStable) then
+                if !table.IsEmpty(OOStable) then
                     for _, vv in ipairs(OOStable) do
                         if !IsValid(itemPanel) or vv != v2.ent then continue end
 
@@ -1071,8 +1096,8 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                     end
                 end
 
-                if istable(discounttimertable) then
-                    for _, vv in ipairs(discounttimertable) do
+                if !table.IsEmpty(discounttimers) then
+                    for _, vv in ipairs(discounttimers) do
                         if !IsValid(itemPanel) or vv.itemname != v2.itemname then continue end
 
                         itemPanel.discounted = true
@@ -1080,8 +1105,8 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                     end
                 end
 
-                if istable(restocktimertable) then
-                    for _, vv in ipairs(restocktimertable) do
+                if !table.IsEmpty(restocktimers) then
+                    for _, vv in ipairs(restocktimers) do
                         if !IsValid(itemPanel) or vv.itemname != v2.ent then continue end
 
                         itemPanel.outofstock = true
@@ -1165,16 +1190,15 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
             searchstring = nil
 
             shopScrollPanel:Show()
+            shopPanelLayout:Show()
 
-            OpenShopPanel = shopScrollPanel
+            OpenShopPanel = shopPanelLayout
 
             for _, v3 in ipairs(browsingPanels) do
                 v3:Show()
             end
 
-            for _, v2 in ipairs(chicagoRP_NPCShop[v.name]) do
-                local itemPanel = CreateItemPanel(shopScrollPanel, v2, w, h)
-            end
+            shopPanelLayout:InvalidateLayout(true)
         end
     end
 
@@ -1204,11 +1228,7 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
         end
     end
 
-    if !table.IsEmpty(carttable) then
-        for _, v in ipairs(carttable)
-            CartItemPanel(cartScrollPanel, v, 100, 200)
-        end
-    end
+    cartScrollPanel:InvalidateLayout(true)
 
     OpenCartPanel = cartScrollPanel
     OpenMotherFrame = motherFrame
@@ -1217,7 +1237,10 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- bug test ffs
+-- optimize chicagoRP_NPCShop_itemOOSalert loop by grouping the remove item table loops into a single one
+-- depreciate RemoveByValue by using k and [n] instead (local that stores how many other k's have been removed, then minus that from the k cached in RestockItem/DiscountRemove)
+-- redo filter loop code
+-- removing the weapon/att parse code and moving to strictly stats in tables?
 
 -- later:
 -- how to spawn npcs in an npc table and assign specific tables to them?

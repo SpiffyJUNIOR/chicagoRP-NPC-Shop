@@ -95,7 +95,7 @@ end
 function chicagoRP_NPCShop.IsCW2Att(enttbl) -- have to dl cw2 source
     -- local atttbl = scripted_ents.GetStored(enttbl.ent)
 
-    -- if !istable(attbl) then return false end
+    -- if !istable(atttbl) or table.IsEmpty(atttbl) then return false end
 
     -- return TFA and istable(atttbl.WeaponTable)
 end
@@ -103,7 +103,7 @@ end
 function chicagoRP_NPCShop.IsTFAAtt(enttbl)
     local atttbl = scripted_ents.GetStored(enttbl.ent)
 
-    if !istable(attbl) then return false end
+    if !istable(atttbl) or table.IsEmpty(atttbl) then return false end
 
     return TFA and istable(atttbl.WeaponTable) -- check scripted_ents.register att prefix
 end
@@ -112,7 +112,7 @@ function chicagoRP_NPCShop.GetWeaponBase(enttbl)
     local sweptbl = weapons.GetStored(enttbl.ent)
     local swepbase = sweptbl.Base
 
-    if !istable(sweptbl) then return end
+    if !istable(sweptbl) or table.IsEmpty(sweptbl) then return end
 
     if swepbase == ("arccw_base" or "weapon_base_kent") then
         return "arccw"
@@ -138,7 +138,7 @@ function chicagoRP_NPCShop.ArcCWBodygroup(swepclass, bglist)
     local bgtable = nil
     local sweptbl = weapons.GetStored(swepclass)
 
-    if istable(bglist) then
+    if istable(bglist) and !table.IsEmpty(bglist) then
         for _, v in ipairs(bglist) do
             table.insert(bgtable, sweptbl.AttachmentElements.v.VMBodygroups)
         end

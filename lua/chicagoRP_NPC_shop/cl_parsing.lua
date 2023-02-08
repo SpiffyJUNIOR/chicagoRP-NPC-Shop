@@ -3,13 +3,13 @@ local function EntityPrintName(enttbl)
     local enttbl = scripted_ents.GetStored(itemtbl.ent)
     local sweptbl = weapons.GetStored(enttbl.ent)
 
-    if istable(sweptbl) then
+    if istable(sweptbl) and !table.IsEmpty(sweptbl) then
         printname = sweptbl.PrintName
 
         if ArcCW and truenames_enabled:GetBool() and sweptbl.Base == ("arccw_base" or "weapon_base_kent") then
             printname = sweptbl.TrueName
         end
-    elseif istable(enttbl) then
+    elseif istable(enttbl) and !table.IsEmpty(enttbl) then
         printname = enttbl.PrintName
     else
         print("Failed to parse entity printname, check your shop table!")
@@ -23,9 +23,9 @@ local function EntityModel(enttbl)
     local enttbl = scripted_ents.GetStored(itemtbl.ent)
     local sweptbl = weapons.GetStored(enttbl.ent)
 
-    if istable(sweptbl) then
+    if istable(sweptbl) and !table.IsEmpty(sweptbl) then
         model = sweptbl.ViewModel
-    elseif istable(enttbl) then
+    elseif istable(enttbl) and !table.IsEmpty(enttbl) then
         printname = enttbl.DroppedModel or enttbl.Mdl or enttbl.Model
         print(enttbl)
     else
@@ -47,7 +47,7 @@ function chicagoRP_NPCShop.GetStats(itemtbl)
     local enttbl = scripted_ents.GetStored(itemtbl.ent) -- how do we get entity table
     local sweptbl = weapons.GetStored(itemtbl.ent)
 
-    if istable(sweptbl) then
+    if istable(sweptbl) and !table.IsEmpty(sweptbl) then
         for _, v in ipairs(wpnparams) do
             if chicagoRP_NPCShop.isempty(sweptbl.v) then continue end
 
@@ -55,7 +55,7 @@ function chicagoRP_NPCShop.GetStats(itemtbl)
         end
 
         return stattbl
-    elseif istable(enttbl) then
+    elseif istable(enttbl) and !table.IsEmpty(enttbl) then
         -- for _, v in ipairs(attparams) do
         --     if chicagoRP_NPCShop.isempty(sweptbl.v) then continue end
 

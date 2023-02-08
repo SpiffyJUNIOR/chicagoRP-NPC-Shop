@@ -91,20 +91,20 @@ local function DiscountThink()
 
 	if seed > discountchance:GetInt() then return end
 
-	local randomitemtbl = mytable[math.random(1, #mytable)]
+	local itemtbl = mytable[math.random(1, #mytable)]
 
-	if timer.Exists("chicagoRP_NPCShop_discount_" .. v.ent) then return end
+	if timer.Exists("chicagoRP_NPCShop_discount_" .. itemtbl.ent) then return end
 
 	local discountseed = math.random(10, 50) -- default percent
 	local discounttime = 600 -- default time
 
-	if isnumber(v.discount) then discountseed = v.discount end
-	if isnumber(v.discounttime) then discounttime = v.discounttime end
+	if isnumber(itemtbl.discount) then discountseed = itemtbl.discount end
+	if isnumber(itemtbl.discounttime) then discounttime = itemtbl.discounttime end
 
-	CreateDiscountTimer(v.ent, discounttime)
-	table.insert(SVTable.discounttimers, {itemname = v.ent, timeleft = discounttime})
+	CreateDiscountTimer(itemtbl.ent, discounttime)
+	table.insert(SVTable.discounttimers, {itemname = itemtbl.ent, timeleft = discounttime})
 
-	local infotbl = {itemname = v.ent, discount = discountseed, discounttime = discounttime}
+	local infotbl = {itemname = itemtbl.ent, discount = discountseed, discounttime = discounttime}
 
 	table.insert(SVTable.discounttable, infotbl)
 end
@@ -185,7 +185,13 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
 		button:Spawn()
 	end
 
+    local JSONTable = util.TableToJSON(SVTable)
+    local compTable = util.Compress(JSONTable)
+    local bytecount = #discounttable
+
     net.Start("chicagoRP_NPCShop_updatequanity")
+	net.WriteUInt(bytecount, 16)
+	net.WriteData(compTable, bytecount)
 	net.Send(ply)
 
 	ply:addMoney(-subtotal)

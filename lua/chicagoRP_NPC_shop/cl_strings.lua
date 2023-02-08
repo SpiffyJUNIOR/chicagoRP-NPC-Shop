@@ -19,7 +19,7 @@ function chicagoRP_NPCShop.PrettifyArcCWString(str)
 end
 
 function chicagoRP_NPCShop.RemoveStrings(source, pretty) -- i'm not doing a full fucking table loop (nvm maybe i will)
-    if !istable(source) then return end
+    if !istable(source) or table.IsEmpty(source) then return end
 
     source[ent] = nil
     source[infotext] = nil
