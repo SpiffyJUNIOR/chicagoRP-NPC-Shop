@@ -1241,7 +1241,7 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- ARC9 weapon/att parsing
+-- ARC9 weapon/att parsing (reuse arccw code, need new attachment params and new find bodygroup code)
 -- CW2 weapon/att parsing
 -- TFA weapon/att parsing (add notif code that says "Why are you using TFA, use ArcCW?")
 -- FAS2 weapon/att parsing
