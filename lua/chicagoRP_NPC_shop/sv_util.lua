@@ -25,24 +25,8 @@ SVTable.OOStable = {}
 SVTable.discounttimers = {}
 SVTable.restocktimers = {}
 
-local function KeyFromValue(tbl, val)
-	for key, value in ipairs(tbl) do
-		if (value == val) then return key end
-	end
-end
-
-local function RemoveByValue(tbl, val)
-	local key = KeyFromValue(tbl, val)
-	if (!key) then return false end
-
-	if (isnumber(key)) then
-		table.remove(tbl, key)
-	else
-		tbl[key] = nil
-	end
-
-	return key
-end
+local discountindex = 0
+local OOSindex = 0
 
 local function GetDiscount(ent)
     for _, v in ipairs(SVTable.discounttable)
@@ -56,8 +40,9 @@ local function GetItemCategory(ent)
 	end
 end
 
-local function RestockItem(ent)
-	RemoveByValue(SVTable.OOStable, ent)
+local function RestockItem(ent, index)
+	table.remove(SVTable.OOStable, index - OOSindex)
+	OOSindex = OOSindex + 1
 
 	if timer.Exists("chicagoRP_NPCShop_OOS_" .. ent) then
 		SVTable.restocktimers[ent].itemname = nil
@@ -66,8 +51,9 @@ local function RestockItem(ent)
 	end
 end
 
-local function DiscountRemove(ent)
-	RemoveByValue(SVTable.discounttable, ent)
+local function DiscountRemove(ent, index)
+	table.remove(SVTable.discounttable, index - discountindex)
+	discountindex = discountindex + 1
 
 	if timer.Exists("chicagoRP_NPCShop_discount_" .. ent) then
 		SVTable.discounttimers[ent].itemname = nil
@@ -76,14 +62,14 @@ local function DiscountRemove(ent)
 	end
 end
 
-local function CreateDiscountTimer(ent, discounttime)
+local function CreateDiscountTimer(ent, discounttime, index)
 	local cachedent = ent
-	timer.Create("chicagoRP_NPCShop_discount_" .. ent, discounttime, 1, DiscountRemove(cachedent))
+	timer.Create("chicagoRP_NPCShop_discount_" .. ent, discounttime, 1, DiscountRemove(cachedent, index))
 end
 
-local function CreateOOSTimer(ent, restocktime)
+local function CreateOOSTimer(ent, restocktime, index)
 	local cachedent = ent
-	timer.Create("chicagoRP_NPCShop_OOS_" .. ent, restocktime, 1, RestockItem(cachedent))
+	timer.Create("chicagoRP_NPCShop_OOS_" .. ent, restocktime, 1, RestockItem(cachedent, index))
 end
 
 local function DiscountThink()
@@ -101,7 +87,9 @@ local function DiscountThink()
 	if isnumber(itemtbl.discount) then discountseed = itemtbl.discount end
 	if isnumber(itemtbl.discounttime) then discounttime = itemtbl.discounttime end
 
-	CreateDiscountTimer(itemtbl.ent, discounttime)
+	discountindex = discountindex - 1
+
+	CreateDiscountTimer(itemtbl.ent, discounttime, #SVTable.discounttable + 1)
 	table.insert(SVTable.discounttimers, {itemname = itemtbl.ent, timeleft = discounttime})
 
 	local infotbl = {itemname = itemtbl.ent, discount = discountseed, discounttime = discounttime}
@@ -126,6 +114,8 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
 
 	local subtotal = 0
 
+	local groupedOOStbl = {}
+
 	for _, v in ipairs(finalTable) do
         local qtytbl = {itemname = v.itemname, quanity = v.quanity}
 
@@ -134,9 +124,7 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
         		if v4.itemname == v.itemname then
         			print("item out of stock")
 
-			        net.Start("chicagoRP_NPCShop_itemOOSalert")
-			        net.WriteString(v.itemname)
-					net.Send(ply)
+			        table.insert(groupedOOStbl, v4.itemname)
 
         			continue
         		end
@@ -147,7 +135,7 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
 
         local itemprice = v.price
 
-        for _, v2 in ipairs(SVTable.quanitytable) do
+        for k, v2 in ipairs(SVTable.quanitytable) do
             if v.itemname == v2.itemname then
                 v.quanity = v.quanity + quanity
 
@@ -159,8 +147,11 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
                 	if v.quanity => v3.quanity then
                 		table.insert(SVTable.OOStable, v.itemname)
                 		table.insert(SVTable.restocktimers, {itemname = v.itemname, timeleft = v3.restock})
+                		table.remove(SVTable.quanitytable, k)
 
-                		CreateOOSTimer(v.itemname, v3.restock)
+                		OOSindex = OOSindex - 1
+
+                		CreateOOSTimer(v.itemname, v3.restock, #SVTable.OOStable)
                 	end
                 end
 
@@ -185,13 +176,22 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
 		button:Spawn()
 	end
 
-    local JSONTable = util.TableToJSON(SVTable)
-    local compTable = util.Compress(JSONTable)
-    local bytecount = #discounttable
+    local OOS_JSONTable = util.TableToJSON(SVTable)
+    local OOS_compTable = util.Compress(JSONTable)
+    local OOS_bytecount = #compTable
+
+    net.Start("chicagoRP_NPCShop_itemOOSalert")
+	net.WriteUInt(OOS_bytecount, 16)
+	net.WriteData(OOS_compTable, OOS_bytecount)
+	net.Send(ply)
+
+    local UQ_JSONTable = util.TableToJSON(SVTable)
+    local UQ_compTable = util.Compress(JSONTable)
+    local UQ_bytecount = #UQ_compTable
 
     net.Start("chicagoRP_NPCShop_updatequanity")
-	net.WriteUInt(bytecount, 16)
-	net.WriteData(compTable, bytecount)
+	net.WriteUInt(UQ_bytecount, 16)
+	net.WriteData(UQ_compTable, UQ_bytecount)
 	net.Send(ply)
 
 	ply:addMoney(-subtotal)

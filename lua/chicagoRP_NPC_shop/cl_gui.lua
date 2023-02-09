@@ -896,6 +896,7 @@ local function CartViewPanel(parent, x, y, w, h)
     function cartScrollBar:Paint(w, h)
         draw.RoundedBox(0, 0, 0, w, h, Color(42, 40, 35, 66))
     end
+
     function cartScrollBar.btnGrip:Paint(w, h)
         draw.RoundedBox(0, 0, 0, w, h, Color(76, 76, 74, 150))
     end
@@ -909,17 +910,20 @@ net.Receive("chicagoRP_NPCShop_itemOOSalert", function()
     local ply = LocalPlayer()
     if !IsValid(ply) or !ply:Alive() then return end
 
-    local itemstring = net.ReadString()
+    local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
+    local compTable = net.ReadData(bytecount) -- Gets back our compressed message
+    local decompTable = util.Decompress(compTable)
+    local finaltable = util.JSONToTable(decompTable)
 
-    ply:ChatPrint("Item " .. itemstring .. " is out of stock!")
+    if !istable(finaltable) or table.IsEmpty(finaltable) then return end
 
-    if !istable(carttable) or table.IsEmpty(carttable) then return end
+    for _, itemstring in ipairs(finaltable) do
+        ply:ChatPrint("Item " .. itemstring .. " was out of stock!")
 
-    for k, v in ipairs(carttable) do
-        if itemstring != v.ent then continue end
-
-        table.remove(carttable, k)
+        notification.AddLegacy("Item " .. itemstring .. " was out of stock, removed from your cart!", NOTIFY_UNDO, 5)
     end
+
+    surface.PlaySound("buttons/button15.wav")
 end)
 
 net.Receive("chicagoRP_NPCShop_updatequanity", function()
@@ -1237,8 +1241,11 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- optimize chicagoRP_NPCShop_itemOOSalert loop by grouping the remove item table loops into a single one
--- depreciate RemoveByValue by using k and [n] instead (local that stores how many other k's have been removed, then minus that from the k cached in RestockItem/DiscountRemove)
+-- ARC9 weapon/att parsing
+-- CW2 weapon/att parsing
+-- TFA weapon/att parsing (add notif code that says "Why are you using TFA, use ArcCW?")
+-- FAS2 weapon/att parsing
+-- M9K weapon parsing
 -- redo filter loop code
 -- removing the weapon/att parse code and moving to strictly stats in tables?
 
