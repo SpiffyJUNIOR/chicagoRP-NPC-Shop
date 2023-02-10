@@ -306,9 +306,12 @@ local function CreateItemPanel(parent, itemtbl, w, h)
     local statPanel = InfoParentPanel(parent, itemtbl, 2, 100, w - 4, 100)
 
     local stattbl = chicagoRP_NPCShop.GetStats(itemtbl)
+    local wpnbase = chicagoRP_NPCShop.GetWeaponBase(itemtbl.ent)
 
-    if chicagoRP_NPCShop.GetWeaponBase(itemtbl) == "arccw" then
+    if wpnbase == "arccw" then
         stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetArcCWStats(itemtbl, true))
+    if wpnbase == "arc9" then
+        stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetARC9Stats(itemtbl, true))
     end
 
     if istable(stattbl) and !table.IsEmpty(stattbl) then
@@ -318,7 +321,7 @@ local function CreateItemPanel(parent, itemtbl, w, h)
             InfoTextPanel(parent, v, whitecolor, (w / 2) - 4, 25)
         end
     elseif (!istable(stattbl) and !table.IsEmpty(stattbl)) or stattbl == nil then
-        local pros, cons, infos = chicagoRP_NPCShop.GetAttStats(itemtbl.wpn, itemtbl.ent)
+        local pros, cons, infos = chicagoRP_NPCShop.GetAttStats(itemtbl)
 
         if istable(pros) and !table.IsEmpty(pros) then
             for _, v2 in ipairs(pros) do
@@ -744,26 +747,24 @@ local function ExpandedItemPanel(itemtbl)
     end
 
     local model = chicagoRP_NPCShop.EntityModel(entname)
-    local isAtt = chicagoRP_NPCShop.IsArcCWAtt(itemtbl)
+    local isAtt = chicagoRP_NPCShop.IsArcCWAtt(itemtbl.ent) or chicagoRP_NPCShop.IsARC9Att(itemtbl.ent)
     local enttbl = scripted_ents.GetStored(entname)
-    local bg_elements = enttbl.ActivateElements
 
-    local modelPanel = FancyModelPanel(itemFrame, model, 50, 0, frameW, 300, purplecolor) -- fix model
+    local modelPanel = FancyModelPanel(itemFrame, model, 50, 0, frameW, 300, purplecolor)
     local textPanel = ScrollingTextPanel(itemFrame, 350, 0, 100, 100)
     local cartButton = AddCartButton(itemFrame, 500, 860, 100, 30)
     local quanitySel = QuanitySelector(itemFrame, 500, 820, 40, 20)
     local infoText = InfoText(itemtbl.infotext, textPanel)
 
-    if isAtt and istable(enttbl) and !table.IsEmpty(enttbl) and !chicagoRP_NPCShop.isempty(bg_elements) then
+    if isAtt and istable(enttbl) and !table.IsEmpty(enttbl) then
         local weapon = itemtbl.wpn
         local parenttbl = weapons.GetStored(weapon)
-
-        local bodygroups = chicagoRP_NPCShop.ArcCWBodygroup(weapon, bg_elements)
+        local bodygroups = chicagoRP_NPCShop.FetchBodygroups(itemtbl)
 
         modelPanel:SetModel(parenttbl.Model)
 
         for _, v in ipairs(bodygroups) do
-            modelPanel.Entity:SetBodygroup(v.ind, v.bg)
+            modelPanel.Entity:SetBodygroup(v[1], v[2])
         end
     end
 
@@ -1121,8 +1122,15 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                 local sanitizedtbl = chicagoRP_NPCShop.RemoveStrings(v2, false)
                 local filterLayout = {}
 
-                if chicagoRP_NPCShop.GetWeaponBase(v2) == "arccw" then
+                local wpnbase = chicagoRP_NPCShop.GetWeaponBase(v2.ent)
+
+                if wpnbase == "arccw" or wpnbase == "arc9" then
                     local wpntable = table.Add(v2, chicagoRP_NPCShop.GetArcCWStats(v2))
+                    local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
+
+                    sanitizedtbl = scrubbedtbl
+                elseif wpnbase == "arc9" then
+                    local wpntable = table.Add(v2, chicagoRP_NPCShop.GetARC9Stats(v2))
                     local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
 
                     sanitizedtbl = scrubbedtbl
@@ -1241,11 +1249,8 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- ARC9 weapon/att parsing (reuse arccw code, need new attachment params and new find bodygroup code)
 -- CW2 weapon/att parsing
--- TFA weapon/att parsing (add notif code that says "Why are you using TFA, use ArcCW?")
--- FAS2 weapon/att parsing
--- M9K weapon parsing
+-- M9K weapon/att parsing
 -- redo filter loop code
 -- removing the weapon/att parse code and moving to strictly stats in tables?
 

@@ -109,7 +109,7 @@ chicagoRP_NPCShop.weapons = {
 chicagoRP_NPCShop.attachments = {
     {
         -- cons = {sightedspeedmult = 0.90},
-        ent = "uc_optic_acog",
+        ent = "acwatt_uc_optic_acog",
         infotext = "Tried-and-true sighting solution for close to medium ranges. Improves target acquisition with a highly precise circle-dot holographic reticle while adding minimal extra weight.",
         price = 570,
         -- pros = {"autostat.holosight"},
@@ -119,7 +119,7 @@ chicagoRP_NPCShop.attachments = {
         type = "scope"
     }, {
         -- cons = {sightedspeedmult = 0.75},
-        ent = "uc_optic_eotech553",
+        ent = "acwatt_uc_optic_eotech553",
         infotext = "Medium range combat scope for improved precision at longer ranges.\nEquipped with backup iron sights for use in emergencies.",
         price = 730,
         -- pros = {"autostat.holosight", "autostat.zoom"},
@@ -129,7 +129,7 @@ chicagoRP_NPCShop.attachments = {
         type = "sight"
     }, {
         -- cons = {sightedspeedmult = 0.75, speedmult = 0.975},
-        ent = "ud_m16_stock_wood",
+        ent = "acwatt_ud_m16_stock_wood",
         infotext = "A sturdy stock made from wood. Heavier than polymer, and almost makes you wish for a nuclear winter.",
         price = 450,
         -- pros = {recoil = 0.85, swaymult = 0.75},
