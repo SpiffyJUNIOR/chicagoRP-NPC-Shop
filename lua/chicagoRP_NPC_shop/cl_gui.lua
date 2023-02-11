@@ -8,8 +8,6 @@ local carttable = {}
 local filtertable = {}
 local discounttimers = nil
 local restocktimers = nil
-local discounttimers = nil
-local restocktimers = nil
 
 local servertable = nil
 local discounttable = nil
@@ -60,9 +58,11 @@ end)
 local function RemoveTimers(tbl)
     if !istable(tbl) or table.IsEmpty(tbl) then return end
 
-    for _, entname in ipairs(tbl) do
-        if timer.Exists("chicagoRP_NPCShop_discount_" .. entname) then
-            timer.Remove("chicagoRP_NPCShop_discount_" .. entname)
+    for item, _ in pairs(tbl) do
+        if timer.Exists("chicagoRP_NPCShop_discount_" .. item) then
+            timer.Remove("chicagoRP_NPCShop_discount_" .. item)
+        elseif timer.Exists("chicagoRP_NPCShop_OOS_" .. item)
+            timer.Remove("chicagoRP_NPCShop_OOS_" .. item)
         else
             continue
         end
@@ -369,7 +369,7 @@ local function CreateItemPanel(parent, itemtbl, w, h)
 
     function cartButton:DoClick()
         local quanity = self.quanity or v.quanity -- how do we do if quanity > server_quanity then func return end?
-        local finaltable = {itemname = itemtbl.ent, quanity = quanity}
+        local finaltable = {ent = itemtbl.ent, quanity = quanity}
 
         if self.outofstock == true then
             print("This item is out of stock!")
@@ -377,7 +377,7 @@ local function CreateItemPanel(parent, itemtbl, w, h)
         end
 
         for _, v in ipairs(carttable) do
-            if v.itemname == itemtbl then
+            if v.ent == itemtbl then
                 v.quanity = v.quanity + quanity
             else
                 table.insert(carttable, finaltable)
@@ -774,11 +774,11 @@ local function ExpandedItemPanel(itemtbl)
     end
 
     function cartButton:DoClick()
-        local quanity = self.value -- how do we do if quanity > server_quanity then func return end?
-        local finaltable = {itemname, quanity}
+        local quanity = self.value
+        local finaltable = {ent, quanity}
 
         for _, v in ipairs(carttable) do
-            if v.itemname == itemname then
+            if v.ent == ent then
                 v.quanity = v.quanity + quanity
             else
                 table.insert(carttable, finaltable)
@@ -907,45 +907,55 @@ local function CartViewPanel(parent, x, y, w, h)
     return cartScrollPanel
 end
 
-net.Receive("chicagoRP_NPCShop_itemOOSalert", function()
+net.Receive("chicagoRP_NPCShop_invalidatelclient", function()
     local ply = LocalPlayer()
-    if !IsValid(ply) or !ply:Alive() then return end
+    if !IsValid(ply) or !ply:Alive() or !IsValid(OpenMotherFrame) or !IsValid(OpenShopPanel) then return end
 
-    local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
-    local compTable = net.ReadData(bytecount) -- Gets back our compressed message
-    local decompTable = util.Decompress(compTable)
-    local finaltable = util.JSONToTable(decompTable)
+    local inv_bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
+    local inv_compTable = net.ReadData(bytecount) -- Gets back our compressed message
+    local inv_decompTable = util.Decompress(compTable)
+    local inv_finaltable = util.JSONToTable(decompTable)
+    local quanitybool = net.ReadBool()
 
-    if !istable(finaltable) or table.IsEmpty(finaltable) then return end
+    if !istable(inv_finaltable) or table.IsEmpty(inv_finaltable) then return end
 
-    for _, itemstring in ipairs(finaltable) do
-        ply:ChatPrint("Item " .. itemstring .. " was out of stock!")
-
-        notification.AddLegacy("Item " .. itemstring .. " was out of stock, removed from your cart!", NOTIFY_UNDO, 5)
-    end
-
-    surface.PlaySound("buttons/button15.wav")
-end)
-
-net.Receive("chicagoRP_NPCShop_updatequanity", function()
-    local ply = LocalPlayer()
-    if !IsValid(ply) or !IsValid(OpenMotherFrame) or !IsValid(OpenShopPanel) then return end
-
-    local bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
-    local compTable = net.ReadData(bytecount) -- Gets back our compressed message
-    local decompTable = util.Decompress(compTable)
-    local finaltable = util.JSONToTable(decompTable)
-
-    servertable = finaltable
-    discounttable = finaltable.discounttable
-    quanitytable = finaltable.quanitytable
-    OOStable = finaltable.OOStable
-    discounttimers = finaltable.discounttimers
-    restocktimers = finaltable.restocktimers
+    servertable = inv_finaltable
+    discounttable = inv_finaltable.discounttable
+    quanitytable = inv_finaltable.quanitytable
+    OOStable = inv_finaltable.OOStable
+    discounttimers = inv_finaltable.discounttimers
+    restocktimers = inv_finaltable.restocktimers
 
     if IsValid(OpenShopPanel) then
         OpenShopPanel:InvalidateLayout()
     end
+
+    if IsValid(OpenCartPanel) then
+        OpenCartPanel:InvalidateLayout()
+    end
+
+    if !quanitybool then return end
+
+    local OOS_bytecount = net.ReadUInt(16) -- Gets back the amount of bytes our data has
+    local OOS_compTable = net.ReadData(bytecount) -- Gets back our compressed message
+    local OOS_decompTable = util.Decompress(compTable)
+    local OOS_finaltable = util.JSONToTable(decompTable)
+
+    if !istable(OOS_finaltable) or table.IsEmpty(OOS_finaltable) then return end
+
+    for _, v in ipairs(OOS_finaltable) do
+        if v.insufficient == true then
+            ply:ChatPrint("Not enough of Item: " .. v.ent .. ", only bought " .. v.quanitybought .. "x!")
+
+            notification.AddLegacy("Insufficient stock of " .. v.ent .. ", only bought " .. v.quanitybought .. "x!", NOTIFY_UNDO, 5)
+        else
+            ply:ChatPrint("Item " .. v.ent .. " was out of stock!")
+
+            notification.AddLegacy("Item " .. v.ent .. " was out of stock!", NOTIFY_UNDO, 5)
+        end
+    end
+
+    surface.PlaySound("buttons/button15.wav")
 end)
 
 net.Receive("chicagoRP_NPCShop_GUI", function()
@@ -1075,48 +1085,28 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                     itemPanel = CreateItemPanel(shopPanelLayout, v2, w, h)
                 end
 
-                if !table.IsEmpty(discounttable) then
-                    for _, vv in ipairs(discounttable) do
-                        if !IsValid(itemPanel) or vv.itemname != v2.ent then continue end
-
-                        itemPanel.discounted = true
-                        itemPanel.discount = vv.discountseed
-                    end
+                if !table.IsEmpty(discounttable) and !table.IsEmpty(discounttable[v2.ent]) then
+                    itemPanel.discounted = true
+                    itemPanel.discount = discounttable[v2.ent].discount
                 end
 
-                if !table.IsEmpty(quanitytable) then
-                    for _, vv in ipairs(quanitytable) do
-                        if !IsValid(itemPanel) or vv.itemname != v2.ent then continue end
-
-                        itemPanel.quanitydifferent = true
-                        itemPanel.quanity = vv.quanity
-                    end
+                if !table.IsEmpty(quanitytable) and !table.IsEmpty(quanitytable[v2.ent]) then
+                    itemPanel.quanitydifferent = true
+                    itemPanel.quanity = quanitytable[v2.ent].quanity
                 end
 
-                if !table.IsEmpty(OOStable) then
-                    for _, vv in ipairs(OOStable) do
-                        if !IsValid(itemPanel) or vv != v2.ent then continue end
-
-                        itemPanel.outofstock = true
-                    end
+                if !table.IsEmpty(OOStable) and !table.IsEmpty(OOStable[v2.ent]) then
+                    itemPanel.outofstock = true
                 end
 
-                if !table.IsEmpty(discounttimers) then
-                    for _, vv in ipairs(discounttimers) do
-                        if !IsValid(itemPanel) or vv.itemname != v2.itemname then continue end
-
-                        itemPanel.discounted = true
-                        itemPanel.discounttime = vv.timeleft
-                    end
+                if !table.IsEmpty(discounttimers) and !table.IsEmpty(discounttimers[v2.ent]) then
+                    itemPanel.discounted = true
+                    itemPanel.discounttime = discounttimers[v2.ent].timeleft
                 end
 
-                if !table.IsEmpty(restocktimers) then
-                    for _, vv in ipairs(restocktimers) do
-                        if !IsValid(itemPanel) or vv.itemname != v2.ent then continue end
-
-                        itemPanel.outofstock = true
-                        itemPanel.restocktime = vv.timeleft
-                    end
+                if !table.IsEmpty(restocktimers) and !table.IsEmpty(restocktimers[v2.ent]) then
+                    itemPanel.outofstock = true
+                    itemPanel.restocktime = restocktimers[v2.ent].timeleft
                 end
 
                 local sanitizedtbl = chicagoRP_NPCShop.RemoveStrings(v2, false)

@@ -1,17 +1,6 @@
 util.AddNetworkString("chicagoRP_NPCShop_GUI")
 util.AddNetworkString("chicagoRP_NPCShop_sendcart")
-util.AddNetworkString("chicagoRP_NPCShop_senddiscount")
-util.AddNetworkString("chicagoRP_NPCShop_sendquanity")
-util.AddNetworkString("chicagoRP_NPCShop_sendoos")
-util.AddNetworkString("chicagoRP_NPCShop_getdiscount")
-util.AddNetworkString("chicagoRP_NPCShop_getquanity")
-util.AddNetworkString("chicagoRP_NPCShop_getoos")
-util.AddNetworkString("chicagoRP_NPCShop_senddiscounttimers")
-util.AddNetworkString("chicagoRP_NPCShop_getdiscounttimers")
-util.AddNetworkString("chicagoRP_NPCShop_sendrestocktimers")
-util.AddNetworkString("chicagoRP_NPCShop_getrestocktimers")
-util.AddNetworkString("chicagoRP_NPCShop_itemOOSalert")
-util.AddNetworkString("chicagoRP_NPCShop_updatequanity")
+util.AddNetworkString("chicagoRP_NPCShop_invalidatelclient")
 
 local enabled = GetConVar("sv_chicagoRP_NPCShop_enable")
 local discountsenabled = GetConVar("sv_chicagoRP_NPCShop_discounts")
@@ -28,48 +17,12 @@ SVTable.restocktimers = {}
 local discountindex = 0
 local OOSindex = 0
 
-local function GetDiscount(ent)
-    for _, v in ipairs(SVTable.discounttable)
-    	if v.ent == ent then return v.percent end
-    end
-end
+local function RandomItem()
+	local shuffledindextbl = table.Shuffle(chicagoRP_NPCShop.categories)
+	local cattbl = chicagoRP_NPCShop[shuffledindextbl[1].name]
+	local shuffleditemtbl = cattbl[math.random(#cattbl)]
 
-local function GetItemCategory(ent)
-	for _, v in ipairs(chicagoRP_NPCShop) do
-		PrintTable(v)
-	end
-end
-
-local function RestockItem(ent, index)
-	table.remove(SVTable.OOStable, index - OOSindex)
-	OOSindex = OOSindex + 1
-
-	if timer.Exists("chicagoRP_NPCShop_OOS_" .. ent) then
-		SVTable.restocktimers[ent].itemname = nil
-
-		timer.Remove("chicagoRP_NPCShop_OOS_" .. ent)
-	end
-end
-
-local function DiscountRemove(ent, index)
-	table.remove(SVTable.discounttable, index - discountindex)
-	discountindex = discountindex + 1
-
-	if timer.Exists("chicagoRP_NPCShop_discount_" .. ent) then
-		SVTable.discounttimers[ent].itemname = nil
-
-		timer.Remove("chicagoRP_NPCShop_discount_" .. ent)
-	end
-end
-
-local function CreateDiscountTimer(ent, discounttime, index)
-	local cachedent = ent
-	timer.Create("chicagoRP_NPCShop_discount_" .. ent, discounttime, 1, DiscountRemove(cachedent, index))
-end
-
-local function CreateOOSTimer(ent, restocktime, index)
-	local cachedent = ent
-	timer.Create("chicagoRP_NPCShop_OOS_" .. ent, restocktime, 1, RestockItem(cachedent, index))
+	return shuffleditemtbl
 end
 
 local function DiscountThink()
@@ -77,9 +30,10 @@ local function DiscountThink()
 
 	if seed > discountchance:GetInt() then return end
 
-	local itemtbl = mytable[math.random(1, #mytable)]
+	local itemtbl = RandomItem()
 
-	if timer.Exists("chicagoRP_NPCShop_discount_" .. itemtbl.ent) then return end
+	if timer.Exists("chicagoRP_NPCShop_discount_" .. itemtbl.ent) then itemtbl = RandomItem() end
+	if timer.Exists("chicagoRP_NPCShop_discount_" .. itemtbl.ent) then itemtbl = RandomItem() end
 
 	local discountseed = math.random(10, 50) -- default percent
 	local discounttime = 600 -- default time
@@ -87,14 +41,57 @@ local function DiscountThink()
 	if isnumber(itemtbl.discount) then discountseed = itemtbl.discount end
 	if isnumber(itemtbl.discounttime) then discounttime = itemtbl.discounttime end
 
-	discountindex = discountindex - 1
+	chicagoRP_NPCShop.CreateDiscount(itemtbl.ent, discounttime, discountseed)
+end
 
-	CreateDiscountTimer(itemtbl.ent, discounttime, #SVTable.discounttable + 1)
-	table.insert(SVTable.discounttimers, {itemname = itemtbl.ent, timeleft = discounttime})
+function chicagoRP_NPCShop.GetDiscountPercentage(ent)
+    return SVTable.discounttable[ent] or nil
+end
 
-	local infotbl = {itemname = itemtbl.ent, discount = discountseed, discounttime = discounttime}
+function chicagoRP_NPCShop.GetDiscountTime(ent)
+    return SVTable.discounttable[ent] or nil
+end
 
-	table.insert(SVTable.discounttable, infotbl)
+function chicagoRP_NPCShop.GetItemCategory(ent)
+	for _, v in ipairs(chicagoRP_NPCShop) do
+		PrintTable(v)
+	end
+end
+
+function chicagoRP_NPCShop.CreateDiscount(ent, discounttime, discountseed)
+	local cachedent = ent
+
+	SVTable.discounttable[ent] = {discount = discountseed, discounttime = discounttime}
+	SVTable.discounttimers[ent] = {timeleft = discounttime}
+	timer.Create("chicagoRP_NPCShop_discount_" .. ent, discounttime, 1, chicagoRP_NPCShop.RemoveDiscount(cachedent))
+end
+
+function chicagoRP_NPCShop.CreateOOS(ent, restocktime)
+	local cachedent = ent
+
+	SVTable.OOStable[ent] = {OOS = true}
+	SVTable.restocktimers[ent] = {timeleft = restocktime}
+	timer.Create("chicagoRP_NPCShop_OOS_" .. ent, restocktime, 1, chicagoRP_NPCShop.RestockItem(cachedent))
+end
+
+function chicagoRP_NPCShop.RestockItem(ent)
+	SVTable.OOStable[ent] = nil
+
+	if timer.Exists("chicagoRP_NPCShop_OOS_" .. ent) then
+		SVTable.restocktimers[ent] = nil
+
+		timer.Remove("chicagoRP_NPCShop_OOS_" .. ent)
+	end
+end
+
+function chicagoRP_NPCShop.RemoveDiscount(ent)
+	SVTable.discounttable[ent] = nil
+
+	if timer.Exists("chicagoRP_NPCShop_discount_" .. ent) then
+		SVTable.discounttimers[ent] = nil
+
+		timer.Remove("chicagoRP_NPCShop_discount_" .. ent)
+	end
 end
 
 net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
@@ -113,86 +110,69 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
 	PrintTable(finalTable)
 
 	local subtotal = 0
-
 	local groupedOOStbl = {}
 
 	for _, v in ipairs(finalTable) do
-        local qtytbl = {itemname = v.itemname, quanity = v.quanity}
+        if !table.IsEmpty(SVTable.OOStable) and !table.IsEmpty(SVTable.OOStable[v.ent]) then
+			print("item out of stock")
 
-        if !table.IsEmpty(SVTable.OOStable) then
-        	for _, v4 in ipairs(SVTable.OOStable) do
-        		if v4.itemname == v.itemname then
-        			print("item out of stock")
+	        table.insert(groupedOOStbl, {ent = v.ent})
+	    end
 
-			        table.insert(groupedOOStbl, v4.itemname)
+        if !table.IsEmpty(SVTable.quanitytable) then
+        	if table.IsEmpty(SVTable.quanitytable[v.ent]) then
+                SVTable.quanitytable[v.ent] = {quanity = v.quanity}
+        	else
+                local cachedquanity = chicagoRP_NPCShop.iteminfo[v.ent].quanity
 
-        			continue
-        		end
-        	end
-        end
+            	if SVTable.quanitytable[v.ent].quanity + v.quanity => cachedquanity then
+            		v.quanity = cachedquanity - SVTable.quanitytable[v.ent].quanity
+            		SVTable.quanitytable[v.ent] = nil
 
-        -- subtotal = subtotal + v.price
-
-        local itemprice = v.price
-
-        for k, v2 in ipairs(SVTable.quanitytable) do
-            if v.itemname == v2.itemname then
-                v.quanity = v.quanity + quanity
-
-                break
-            else
-                table.insert(SVTable.quanitytable, qtytbl)
-
-                for _, v3 in ipairs(GetItemCategory(v.itemname)) do
-                	if v.quanity => v3.quanity then
-                		table.insert(SVTable.OOStable, v.itemname)
-                		table.insert(SVTable.restocktimers, {itemname = v.itemname, timeleft = v3.restock})
-                		table.remove(SVTable.quanitytable, k)
-
-                		OOSindex = OOSindex - 1
-
-                		CreateOOSTimer(v.itemname, v3.restock, #SVTable.OOStable)
-                	end
-                end
-
-                break
+            		chicagoRP_NPCShop.CreateOOS(v.ent, v3.restock)
+            		table.insert(groupedOOStbl, {ent = v.ent, insufficient = true, quanitybought = v.quanity)
+            	end
             end
-        end
+	    end
 
-        for _, v5 in ipairs(SVTable.discounttable)
-        	if v5.ent == v.itemname then
-        		itemprice = itemprice - math.Round((itemprice * v5.percent))
+	    local itemprice = v.price
 
-        		break
-        	end
-        end
+        if !table.IsEmpty(SVTable.discounttable) and !table.IsEmpty(SVTable.discounttable[v.ent]) then
+			local discount = SVTable.discounttable[v.ent].percent
+
+			itemprice = itemprice - math.Round((itemprice * discount))
+	    end
 
         subtotal = subtotal + v.price
-        -- ply:Give(v.itemname)
+
+        -- ply:Give(v.ent)
         local plypos = ply:GetPos()
         plypos:Add(Vector(0, 5, 0))
-        local spawnedent = ents.Create(v.itemname)
+        local spawnedent = ents.Create(v.ent)
 		button:SetPos(plypos)
 		button:Spawn()
 	end
-
-    local OOS_JSONTable = util.TableToJSON(SVTable)
-    local OOS_compTable = util.Compress(JSONTable)
-    local OOS_bytecount = #compTable
-
-    net.Start("chicagoRP_NPCShop_itemOOSalert")
-	net.WriteUInt(OOS_bytecount, 16)
-	net.WriteData(OOS_compTable, OOS_bytecount)
-	net.Send(ply)
 
     local UQ_JSONTable = util.TableToJSON(SVTable)
     local UQ_compTable = util.Compress(JSONTable)
     local UQ_bytecount = #UQ_compTable
 
-    net.Start("chicagoRP_NPCShop_updatequanity")
+    net.Start("chicagoRP_NPCShop_invalidatelclient")
 	net.WriteUInt(UQ_bytecount, 16)
 	net.WriteData(UQ_compTable, UQ_bytecount)
-	net.Send(ply)
+
+	if !table.IsEmpty(groupedOOStbl) then
+	    local OOS_JSONTable = util.TableToJSON(groupedOOStbl)
+	    local OOS_compTable = util.Compress(JSONTable)
+	    local OOS_bytecount = #compTable
+
+	    net.WriteBool(true)
+		net.WriteUInt(OOS_bytecount, 16)
+		net.WriteData(OOS_compTable, OOS_bytecount)
+	else
+		net.WriteBit(false)
+		net.Send(ply)
+	end
 
 	ply:addMoney(-subtotal)
 end)
@@ -201,7 +181,7 @@ if discountsenabled:GetBool() then
 	timer.Create("chicagoRP_NPCShop_discounts", discountdelay:GetInt(), 0, DiscountThink())
 end
 
-concommand.Add("chicagoRP_NPCShop", function(ply) -- how we close/open this based on bind being held?
+concommand.Add("chicagoRP_NPCShop", function(ply)
     if !IsValid(ply) then return end
     local JSONTable = util.TableToJSON(SVTable)
     local compTable = util.Compress(JSONTable)
