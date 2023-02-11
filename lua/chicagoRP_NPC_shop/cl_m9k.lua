@@ -39,7 +39,7 @@ local function M9KStatString(str, statval)
         return tostring(statval) .. "RPM"
     else
         print("didn't parse arccw stat string")
-        return "NIL"
+        return statval
     end
 end
 

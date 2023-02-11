@@ -312,6 +312,8 @@ local function CreateItemPanel(parent, itemtbl, w, h)
         stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetArcCWStats(itemtbl, true))
     elseif wpnbase == "arc9" then
         stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetARC9Stats(itemtbl, true))
+    elseif wpnbase == "cw2" then
+        stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetCW2Stats(itemtbl, true))
     elseif wpnbase == "m9k" then
         stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetM9KStats(itemtbl, true))
     end
@@ -751,6 +753,7 @@ local function ExpandedItemPanel(itemtbl)
     local model = chicagoRP_NPCShop.EntityModel(entname)
     local wpnbase = chicagoRP_NPCShop.GetWeaponBase(itemtbl.ent)
     local isAtt = chicagoRP_NPCShop.IsArcCWAtt(itemtbl.ent) or chicagoRP_NPCShop.IsARC9Att(itemtbl.ent)
+    local isCW2Att = chicagoRP_NPCShop.IsCW2Att(itemtbl.ent)
     local enttbl = scripted_ents.GetStored(entname)
 
     local modelPanel = FancyModelPanel(itemFrame, model, 50, 0, frameW, 300, purplecolor)
@@ -759,11 +762,16 @@ local function ExpandedItemPanel(itemtbl)
     local quanitySel = QuanitySelector(itemFrame, 500, 820, 40, 20)
     local infoText = InfoText(itemtbl.infotext, textPanel)
 
+    if isCW2Att and istable(enttbl)
+        modelPanel:SetModel("models/weapons/c_toolgun.mdl")
+        print("cw2 att model fallback")
+    end
+
     if wpnbase == "arc9" then
         modelPanel.Entity:SetBodyGroups(chicagoRP_NPCShop.ARC9WeaponBodygroups(itemtbl.ent))
     end
 
-    if isAtt and istable(enttbl) and !table.IsEmpty(enttbl) and !table.IsEmpty(enttbl.ActivateElements) then
+    elseif isAtt and istable(enttbl) and !table.IsEmpty(enttbl) and !table.IsEmpty(enttbl.ActivateElements) then
         local weapon = itemtbl.wpn
         local parenttbl = weapons.GetStored(weapon)
         local bodygroups = chicagoRP_NPCShop.FetchBodygroups(itemtbl)
@@ -1131,6 +1139,11 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                     local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
 
                     sanitizedtbl = scrubbedtbl
+                elseif wpnbase == "cw2" then
+                    local wpntable = table.Add(v2, chicagoRP_NPCShop.GetCW2Stats(v2))
+                    local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
+
+                    sanitizedtbl = scrubbedtbl
                 elseif wpnbase == "m9k" then
                     local wpntable = table.Add(v2, chicagoRP_NPCShop.GetM9KStats(v2))
                     local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
@@ -1251,9 +1264,9 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- TFA weapon parsing
--- CW2 weapon parsing, bodygroups will have to be inputted manually :|
--- redo filter loop code
+-- CW2 bodygroup code (for ins2 packs and shit)
+-- rewrite how stat strings are done (instead of parsing them before filter code, only filter them on display)
+-- rewrite filter loop code
 -- improve override handling
 -- removing the weapon/att parse code and moving to strictly stats in tables?
 

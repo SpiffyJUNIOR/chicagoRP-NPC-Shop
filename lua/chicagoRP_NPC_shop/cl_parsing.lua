@@ -24,7 +24,7 @@ local function EntityModel(enttbl)
     local sweptbl = weapons.GetStored(enttbl.ent)
 
     if istable(sweptbl) and !table.IsEmpty(sweptbl) then
-        model = sweptbl.ViewModel
+        model = sweptbl.ViewModel or sweptbl.Model
     elseif istable(enttbl) and !table.IsEmpty(enttbl) then
         printname = enttbl.DroppedModel or enttbl.Mdl or enttbl.Model
         print(enttbl)

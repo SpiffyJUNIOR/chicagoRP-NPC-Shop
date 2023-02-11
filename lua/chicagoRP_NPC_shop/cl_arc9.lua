@@ -38,8 +38,8 @@ local function ARC9StatString(str, statval)
     elseif str == "SpeedMultSights" then
         return statval * 20
     else
-        print("didn't parse arccw stat string")
-        return "NIL"
+        print("didn't parse arc9 stat string")
+        return statval
     end
 end
 

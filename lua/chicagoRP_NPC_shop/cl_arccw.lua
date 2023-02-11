@@ -291,7 +291,7 @@ local function ArcCWStatString(str, statval)
         return statval * 20
     else
         print("didn't parse arccw stat string")
-        return "NIL"
+        return statval
     end
 end
 
