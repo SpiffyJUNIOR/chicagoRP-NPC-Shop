@@ -18,8 +18,8 @@ local discountindex = 0
 local OOSindex = 0
 
 local function RandomItem()
-	local shuffledindextbl = table.Shuffle(chicagoRP_NPCShop.categories)
-	local cattbl = chicagoRP_NPCShop[shuffledindextbl[1].name]
+	local shuffledindextbl = chicagoRP_NPCShop.categories[math.random(#cattbl)]
+	local cattbl = chicagoRP_NPCShop[shuffledindextbl.name]
 	local shuffleditemtbl = cattbl[math.random(#cattbl)]
 
 	return shuffleditemtbl

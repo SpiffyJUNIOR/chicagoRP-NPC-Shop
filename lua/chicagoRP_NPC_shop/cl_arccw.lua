@@ -233,7 +233,7 @@ function chicagoRP_NPCShop.GetArcCWAttStats(wep, enttable) -- check the table to
     return pros, cons, infos
 end
 
-function chicagoRP_NPCShop.ArcCWFiremodesToString(firemodetbl)
+local function ArcCWFiremodesToString(firemodetbl)
     local concattedstr = ""
 
     for _, v in ipairs(firemodetbl)

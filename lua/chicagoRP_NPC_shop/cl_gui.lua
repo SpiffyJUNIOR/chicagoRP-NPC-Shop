@@ -310,8 +310,10 @@ local function CreateItemPanel(parent, itemtbl, w, h)
 
     if wpnbase == "arccw" then
         stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetArcCWStats(itemtbl, true))
-    if wpnbase == "arc9" then
+    elseif wpnbase == "arc9" then
         stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetARC9Stats(itemtbl, true))
+    elseif wpnbase == "m9k" then
+        stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetM9KStats(itemtbl, true))
     end
 
     if istable(stattbl) and !table.IsEmpty(stattbl) then
@@ -682,7 +684,7 @@ local function FancyModelPanel(parent, model, x, y, w, h, lightcolor)
     local modelPanel = vgui.Create("DAdjustableModelPanel", parentPanel)
     modelPanel:SetSize(w, h)
     modelPanel:SetPos(x, y)
-    modelPanel:SetModel(model) -- how do we add arccw attachment support?
+    modelPanel:SetModel(model)
     modelPanel:SetAmbientLight(whitecolor) -- main light up top (typically slightly yellow), fill light below camera (very faint pale blue), rim light to the left (urban color), rimlight to the right (white)
     modelPanel:SetDirectionalLight(BOX_TOP, slightyellowcolor)
     modelPanel:SetDirectionalLight(BOX_FRONT, slightbluecolor)
@@ -747,6 +749,7 @@ local function ExpandedItemPanel(itemtbl)
     end
 
     local model = chicagoRP_NPCShop.EntityModel(entname)
+    local wpnbase = chicagoRP_NPCShop.GetWeaponBase(itemtbl.ent)
     local isAtt = chicagoRP_NPCShop.IsArcCWAtt(itemtbl.ent) or chicagoRP_NPCShop.IsARC9Att(itemtbl.ent)
     local enttbl = scripted_ents.GetStored(entname)
 
@@ -756,7 +759,11 @@ local function ExpandedItemPanel(itemtbl)
     local quanitySel = QuanitySelector(itemFrame, 500, 820, 40, 20)
     local infoText = InfoText(itemtbl.infotext, textPanel)
 
-    if isAtt and istable(enttbl) and !table.IsEmpty(enttbl) then
+    if wpnbase == "arc9" then
+        modelPanel.Entity:SetBodyGroups(chicagoRP_NPCShop.ARC9WeaponBodygroups(itemtbl.ent))
+    end
+
+    if isAtt and istable(enttbl) and !table.IsEmpty(enttbl) and !table.IsEmpty(enttbl.ActivateElements) then
         local weapon = itemtbl.wpn
         local parenttbl = weapons.GetStored(weapon)
         local bodygroups = chicagoRP_NPCShop.FetchBodygroups(itemtbl)
@@ -1124,6 +1131,11 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                     local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
 
                     sanitizedtbl = scrubbedtbl
+                elseif wpnbase == "m9k" then
+                    local wpntable = table.Add(v2, chicagoRP_NPCShop.GetM9KStats(v2))
+                    local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
+
+                    sanitizedtbl = scrubbedtbl
                 end
 
                 for _, v3 in ipairs(sanitizedtbl) do
@@ -1239,9 +1251,10 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- CW2 weapon/att parsing
--- M9K weapon/att parsing
+-- TFA weapon parsing
+-- CW2 weapon parsing, bodygroups will have to be inputted manually :|
 -- redo filter loop code
+-- improve override handling
 -- removing the weapon/att parse code and moving to strictly stats in tables?
 
 -- later:

@@ -229,6 +229,17 @@ function chicagoRP_NPCShop.IsARC9Att(ent)
     return ARC9 and !chicagoRP_NPCShop.isempty(string.find(ent, "arc9_att_"))
 end
 
+function chicagoRP_NPCShop.ARC9WeaponBodygroups(weaponname)
+    local bgtable = {}
+    local sweptbl = weapons.GetStored(weaponname)
+
+    local bodygroups = sweptbl.DefaultBodygroups
+
+    if chicagoRP_NPCShop.isempty(bodygroups) then return end
+
+    return bodygroups
+end
+
 function chicagoRP_NPCShop.ARC9Bodygroup(weaponname, attname)
     local bgtable = {}
     local sweptbl = weapons.GetStored(weaponname)

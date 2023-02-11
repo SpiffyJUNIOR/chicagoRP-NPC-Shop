@@ -11,14 +11,16 @@ function chicagoRP_NPCShop.GetWeaponBase(ent)
 
     if !istable(sweptbl) or table.IsEmpty(sweptbl) then return end
 
-    if swepbase == ("arccw_base" or "weapon_base_kent") then
+    if swepbase == "arccw_base" or swepbase == "weapon_base_kent" then
         return "arccw"
-    elseif swepbase == ("arc9_go_base" or "arc9_base") then
+    elseif swepbase == "arc9_go_base" or swepbase == "arc9_base" then
         return "arc9"
     elseif swepbase == "cw_base" then
         return "cw2"
     elseif swepbase == "tfa_gun_base" then 
         return "tfa"
+    elseif swepbase == "bobs_gun_base" then
+        return "m9k"
     else
         return "default"
     end
