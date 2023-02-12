@@ -253,7 +253,7 @@ local function CreateItemPanel(parent, itemtbl, w, h)
     itemButton:SetSize(w, h)
     -- itemButton:SetPos(x, y)
 
-    local printname = chicagoRP_NPCShop.EntityPrintName(itemtbl)
+    local printname = chicagoRP_NPCShop.EntityPrintName(itemtbl.ent)
 
     local maxquanity = self.quanity or v.quanity
 
@@ -297,7 +297,7 @@ local function CreateItemPanel(parent, itemtbl, w, h)
         local expandedPanel = ExpandedItemPanel(itemtbl)
     end
 
-    local spawnicon = OptimizedSpawnIcon(itemButton, chicagoRP_NPCShop.EntityModel(itemtbl), 100, 50, 64, 64)
+    local spawnicon = OptimizedSpawnIcon(itemButton, chicagoRP_NPCShop.EntityModel(itemtbl.ent), 100, 50, 64, 64)
 
     spawnicon.Think = nil
 
@@ -372,20 +372,18 @@ local function CreateItemPanel(parent, itemtbl, w, h)
     end
 
     function cartButton:DoClick()
-        local quanity = self.quanity or v.quanity -- how do we do if quanity > server_quanity then func return end?
-        local finaltable = {ent = itemtbl.ent, quanity = quanity}
+        local self_quanity = self.quanity or v.quanity -- how do we do if quanity > server_quanity then func return end?
+        local finaltable = {ent = itemtbl.ent, quanity = self_quanity}
 
         if self.outofstock == true then
             print("This item is out of stock!")
             return
         end
 
-        for _, v in ipairs(carttable) do
-            if v.ent == itemtbl then
-                v.quanity = v.quanity + quanity
-            else
-                table.insert(carttable, finaltable)
-            end
+        if !istable(carttable[itemtbl.ent]) or !table.IsEmpty(carttable[itemtbl.ent]) then
+            carttable[itemtbl.ent].quanity = carttable[itemtbl.ent].quanity + self_quanity
+        else
+            carttable[itemtbl.ent] = {quanity = self_quanity}
         end
 
         if IsValid(OpenCartPanel) then
@@ -718,7 +716,7 @@ local function ExpandedItemPanel(itemtbl)
     itemFrame:SetVisible(true)
     itemFrame:SetDraggable(true)
     itemFrame:ShowCloseButton(true)
-    itemFrame:SetTitle(chicagoRP_NPCShop.EntityPrintName(entname))
+    itemFrame:SetTitle(chicagoRP_NPCShop.EntityPrintName(entname.ent))
     itemFrame:ParentToHUD() -- needed?
     HideHUD = true
 
@@ -750,7 +748,7 @@ local function ExpandedItemPanel(itemtbl)
         chicagoRP.BlurBackground(self)
     end
 
-    local model = chicagoRP_NPCShop.EntityModel(entname)
+    local model = chicagoRP_NPCShop.EntityModel(entname.ent)
     local wpnbase = chicagoRP_NPCShop.GetWeaponBase(itemtbl.ent)
     local isAtt = chicagoRP_NPCShop.IsArcCWAtt(itemtbl.ent) or chicagoRP_NPCShop.IsARC9Att(itemtbl.ent)
     local isCW2Att = chicagoRP_NPCShop.IsCW2Att(itemtbl.ent)
@@ -762,21 +760,32 @@ local function ExpandedItemPanel(itemtbl)
     local quanitySel = QuanitySelector(itemFrame, 500, 820, 40, 20)
     local infoText = InfoText(itemtbl.infotext, textPanel)
 
-    if isCW2Att and istable(enttbl)
+    if isCW2Att and istable(itemtbl.bodygroups) and !table.IsEmpty(itemtbl.bodygroups) then
+        local weapon = itemtbl.wpn
+        local parenttbl = weapons.GetStored(weapon)
+        local weaponmodel = parenttbl.ViewModel or parenttbl.Model
+
+        modelPanel:SetModel(weaponmodel)
+
+        for _, v in ipairs(itemtbl.bodygroups)
+            modelPanel.Entity:SetBodygroup(v[1], v[2])
+        end
+    elseif isCW2Att and istable(enttbl) then
         modelPanel:SetModel("models/weapons/c_toolgun.mdl")
         print("cw2 att model fallback")
     end
 
-    if wpnbase == "arc9" then
+    if wpnbase == "arc9" and !isAtt then
         modelPanel.Entity:SetBodyGroups(chicagoRP_NPCShop.ARC9WeaponBodygroups(itemtbl.ent))
     end
 
-    elseif isAtt and istable(enttbl) and !table.IsEmpty(enttbl) and !table.IsEmpty(enttbl.ActivateElements) then
+    if isAtt and istable(enttbl) and !table.IsEmpty(enttbl) and !table.IsEmpty(enttbl.ActivateElements) then
         local weapon = itemtbl.wpn
         local parenttbl = weapons.GetStored(weapon)
         local bodygroups = chicagoRP_NPCShop.FetchBodygroups(itemtbl)
+        local weaponmodel = parenttbl.ViewModel or parenttbl.Model
 
-        modelPanel:SetModel(parenttbl.Model)
+        modelPanel:SetModel(weaponmodel)
 
         for _, v in ipairs(bodygroups) do
             modelPanel.Entity:SetBodygroup(v[1], v[2])
@@ -792,12 +801,10 @@ local function ExpandedItemPanel(itemtbl)
         local quanity = self.value
         local finaltable = {ent, quanity}
 
-        for _, v in ipairs(carttable) do
-            if v.ent == ent then
-                v.quanity = v.quanity + quanity
-            else
-                table.insert(carttable, finaltable)
-            end
+        if !istable(carttable[itemtbl.ent]) or !table.IsEmpty(carttable[itemtbl.ent]) then
+            carttable[itemtbl.ent].quanity = carttable[itemtbl.ent].quanity + self_quanity
+        else
+            carttable[itemtbl.ent] = {quanity = self_quanity}
         end
 
         if IsValid(OpenCartPanel) then
@@ -818,7 +825,7 @@ local function CartItemPanel(parent, itemtbl, w, h)
     cartItem:Dock(TOP)
     cartItem:DockMargin(0, 0, 0, 10)
 
-    local printname = chicagoRP_NPCShop.EntityPrintName(itemtbl)
+    local printname = chicagoRP_NPCShop.EntityPrintName(itemtbl.ent)
 
     function cartItem:Paint(w, h)
         draw.DrawText(printname, "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
@@ -960,13 +967,13 @@ net.Receive("chicagoRP_NPCShop_invalidatelclient", function()
 
     for _, v in ipairs(OOS_finaltable) do
         if v.insufficient == true then
-            ply:ChatPrint("Not enough of Item: " .. v.ent .. ", only bought " .. v.quanitybought .. "x!")
+            ply:ChatPrint("Not enough of Item: " .. EntityPrintName(v.ent) .. ", only bought " .. v.quanitybought .. "x!")
 
-            notification.AddLegacy("Insufficient stock of " .. v.ent .. ", only bought " .. v.quanitybought .. "x!", NOTIFY_UNDO, 5)
+            notification.AddLegacy("Insufficient stock of " .. EntityPrintName(v.ent) .. ", only bought " .. v.quanitybought .. "x!", NOTIFY_UNDO, 5)
         else
-            ply:ChatPrint("Item " .. v.ent .. " was out of stock!")
+            ply:ChatPrint("Item " .. EntityPrintName(v.ent) .. " was out of stock!")
 
-            notification.AddLegacy("Item " .. v.ent .. " was out of stock!", NOTIFY_UNDO, 5)
+            notification.AddLegacy("Item " .. EntityPrintName(v.ent) .. " was out of stock!", NOTIFY_UNDO, 5)
         end
     end
 
@@ -1250,8 +1257,8 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
             v4:Remove()
         end
 
-        for _, v in ipairs(carttable)
-            CartItemPanel(cartScrollPanel, v, 100, 200)
+        for k, _ in pairs(carttable)
+            CartItemPanel(cartScrollPanel, chicagoRP_NPCShop.iteminfo[k], 100, 200)
         end
     end
 
@@ -1264,7 +1271,6 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- CW2 bodygroup code (for ins2 packs and shit)
 -- rewrite how stat strings are done (instead of parsing them before filter code, only filter them on display)
 -- rewrite filter loop code
 -- improve override handling

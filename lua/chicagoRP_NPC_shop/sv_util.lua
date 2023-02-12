@@ -112,7 +112,9 @@ net.Receive("chicagoRP_NPCShop_sendcart", function(_, ply)
 	local subtotal = 0
 	local groupedOOStbl = {}
 
-	for _, v in ipairs(finalTable) do
+	for k, _ in pairs(finalTable) do
+		local v = chicagoRP_NPCShop.iteminfo[k]
+
         if !table.IsEmpty(SVTable.OOStable) and !table.IsEmpty(SVTable.OOStable[v.ent]) then
 			print("item out of stock")
 

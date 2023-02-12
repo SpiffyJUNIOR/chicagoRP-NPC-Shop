@@ -139,6 +139,21 @@ chicagoRP_NPCShop.attachments = {
         -- slots = {"ud_m16_stock"},
         type = "stock",
         wpn = "arccw_ud_m16"
+    }, {
+        -- cons = {sightedspeedmult = 0.75, speedmult = 0.975},
+        bodygroups = {
+            {2, 1},
+            {3, 1}
+        },
+        ent = "ur_ak_cal_545",
+        infotext = "CW2 bodygroup test, pretend this is RPK barrel",
+        price = 450,
+        -- pros = {recoil = 0.85, swaymult = 0.75},
+        quanity = 6,
+        restock = 600,
+        -- slots = {"ud_m16_stock"},
+        type = "stock",
+        wpn = "arccw_ud_m16"
     }
 }
 

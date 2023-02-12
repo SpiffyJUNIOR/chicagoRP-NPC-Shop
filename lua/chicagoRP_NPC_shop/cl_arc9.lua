@@ -8,6 +8,13 @@ local ammostrings = {
     ["smg1_grenade"] = "Grenade"
 }
 
+local firemodestrings = {
+    ["auto"] = "Full-Auto",
+    ["semi"] = "Semi-Auto",
+    ["burst"] = "Burst",
+    ["safe"] = "Safe"
+}
+
 local function AmmoString(ammoname)
     if chicagoRP_NPCShop.isempty(ammoname) then return end
 
@@ -64,6 +71,25 @@ local function ARC9FiremodesToString(firemodetbl)
     return concattedstr
 end
 
+local function ConvertFiremodeTable(firemodetbl)
+    for _, v in ipairs(firemodetbl)
+        local mode = v.Mode
+        local str = nil
+
+        if mode >= -1 then 
+            v.Mode = firemodestrings["auto"]
+        elseif mode == 0 then
+            v.Mode = firemodestrings["safe"]
+        elseif mode == 1 then
+            v.Mode = firemodestrings["semi"]
+        elseif mode <= 2 then
+            v.Mode = tostring(v.Mode) .. "-" .. firemodestrings["burst"]
+        end
+    end
+
+    return firemodetbl
+end
+
 function chicagoRP_NPCShop.GetARC9Stats(wpnname, pretty)
     local stattbl = {}
     local wpntbl = weapons.GetStored(wpnname.ent)
@@ -71,7 +97,7 @@ function chicagoRP_NPCShop.GetARC9Stats(wpnname, pretty)
     
     for _, v in ipairs(wpnparams) do
         if pretty == nil or pretty == false then
-            local paramtbl = {name = v, stat = wpntbl.[v]}
+            local paramtbl = {name = v, stat = ARC9StatString(v, wpntbl.[v])}
 
             table.insert(stattbl, paramtbl)
 
@@ -80,7 +106,7 @@ function chicagoRP_NPCShop.GetARC9Stats(wpnname, pretty)
             local parsedstat = ARC9StatString(v, wpntbl.[v])
 
             if v == "Firemodes" then
-                parsedstat = ARC9FiremodesToString(v, wpntbl.[v])
+                parsedstat = ConvertFiremodeTable(wpntbl.Firemodes)
             end
 
             if v == "Primary.Ammo" then

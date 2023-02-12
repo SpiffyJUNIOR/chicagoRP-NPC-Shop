@@ -8,6 +8,13 @@ local ammostrings = {
     ["smg1_grenade"] = "Grenade"
 }
 
+local firemodestrings = {
+    ["auto"] = "Full-Auto",
+    ["semi"] = "Semi-Auto",
+    ["burst"] = "%d-Burst",
+    ["safe"] = "Safe"
+}
+
 local ArcCW_AutoStats = {
     ["MagExtender"]           = {"autostat.magextender", "override", false,       pr = 317}, -- Attachments
     ["MagReducer"]            = {"autostat.magreducer",  "override", true,        pr = 316},
@@ -256,6 +263,24 @@ local function ArcCWFiremodesToString(firemodetbl)
     return concattedstr
 end
 
+local function ConvertFiremodeTable(firemodetbl)
+    for _, v in ipairs(firemodetbl)
+        local mode = v.Mode
+
+        if mode == 0 then 
+            v.Mode = firemodestrings["safe"]
+        elseif mode == 1 then
+            v.Mode = firemodestrings["semi"]
+        elseif mode >= 2 then
+            v.Mode = firemodestrings["auto"]
+        elseif mode < 0 then
+            v.Mode = string.format(firemodestrings["burst"], tostring(-mode)) 
+        end
+    end
+
+    return firemodetbl
+end
+
 local function AmmoString(ammoname)
     if chicagoRP_NPCShop.isempty(ammoname) then return end
 
@@ -302,7 +327,7 @@ function chicagoRP_NPCShop.GetArcCWStats(wpnname, pretty)
     
     for _, v in ipairs(wpnparams) do
         if pretty == nil or pretty == false then
-            local paramtbl = {name = v, stat = wpntbl.[v]}
+            local paramtbl = {name = v, stat = ArcCWStatString(v, wpntbl.[v])}
 
             table.insert(stattbl, paramtbl)
 
@@ -311,7 +336,7 @@ function chicagoRP_NPCShop.GetArcCWStats(wpnname, pretty)
             local parsedstat = ArcCWStatString(v, wpntbl.[v])
 
             if v == "Firemodes" then
-                parsedstat = ArcCWFiremodesToString(v, wpntbl.[v])
+                parsedstat = ConvertFiremodeTable(wpntbl.Firemodes)
             end
 
             if v == "Primary.Ammo" then

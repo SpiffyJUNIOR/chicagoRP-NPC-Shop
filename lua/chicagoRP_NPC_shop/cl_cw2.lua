@@ -56,6 +56,14 @@ local function CW2FiremodesToString(firemodetbl)
     return concattedstr
 end
 
+local function ConvertFiremodeTable(firemodetbl)
+    for _, v in ipairs(firemodetbl)
+        v.Mode = firemodestrings[v]
+    end
+
+    return firemodetbl
+end
+
 local function CW2StatString(str, statval)
     if str == "MuzzleVelocity" then
         return tostring(statval) .. "m/s"
@@ -82,7 +90,7 @@ function chicagoRP_NPCShop.GetCW2Stats(wpnname, pretty)
     
     for _, v in ipairs(wpnparams) do
         if pretty == nil or pretty == false then
-            local paramtbl = {name = v, stat = wpntbl.[v]}
+            local paramtbl = {name = v, stat = CW2StatString(v, wpntbl.[v])}
 
             table.insert(stattbl, paramtbl)
 
@@ -91,7 +99,7 @@ function chicagoRP_NPCShop.GetCW2Stats(wpnname, pretty)
             local parsedstat = CW2StatString(v, wpntbl.[v])
 
             if v == "FireModes" then
-                parsedstat = CW2FiremodesToString(v, wpntbl.[v])
+                parsedstat = ConvertFiremodeTable
             end
 
             if v == "Primary.Ammo" then

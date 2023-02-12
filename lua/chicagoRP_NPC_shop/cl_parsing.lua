@@ -1,7 +1,7 @@
-local function EntityPrintName(enttbl)
+local function EntityPrintName(item)
     local printname = nil
-    local enttbl = scripted_ents.GetStored(itemtbl.ent)
-    local sweptbl = weapons.GetStored(enttbl.ent)
+    local enttbl = scripted_ents.GetStored(item)
+    local sweptbl = weapons.GetStored(item)
 
     if istable(sweptbl) and !table.IsEmpty(sweptbl) then
         printname = sweptbl.PrintName
@@ -18,10 +18,10 @@ local function EntityPrintName(enttbl)
     return printname
 end
 
-local function EntityModel(enttbl)
+local function EntityModel(item)
     local model = nil
-    local enttbl = scripted_ents.GetStored(itemtbl.ent)
-    local sweptbl = weapons.GetStored(enttbl.ent)
+    local enttbl = scripted_ents.GetStored(item)
+    local sweptbl = weapons.GetStored(item)
 
     if istable(sweptbl) and !table.IsEmpty(sweptbl) then
         model = sweptbl.ViewModel or sweptbl.Model
