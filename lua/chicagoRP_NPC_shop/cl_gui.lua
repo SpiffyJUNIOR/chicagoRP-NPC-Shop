@@ -305,17 +305,17 @@ local function CreateItemPanel(parent, itemtbl, w, h)
     local quanitySel = QuanitySelector(parent, 200, 0, 40, 20)
     local statPanel = InfoParentPanel(parent, itemtbl, 2, 100, w - 4, 100)
 
-    local stattbl = chicagoRP_NPCShop.GetStats(itemtbl)
+    local stattbl = nil
     local wpnbase = chicagoRP_NPCShop.GetWeaponBase(itemtbl.ent)
 
     if wpnbase == "arccw" then
-        stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetArcCWStats(itemtbl, true))
+        stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetArcCWWeaponStats(itemtbl, true))
     elseif wpnbase == "arc9" then
-        stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetARC9Stats(itemtbl, true))
+        stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetARC9WeaponStats(itemtbl, true))
     elseif wpnbase == "cw2" then
-        stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetCW2Stats(itemtbl, true))
+        stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetCW2WeaponStats(itemtbl, true))
     elseif wpnbase == "m9k" then
-        stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetM9KStats(itemtbl, true))
+        stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetM9KWeaponStats(itemtbl, true))
     end
 
     if istable(stattbl) and !table.IsEmpty(stattbl) then
@@ -324,8 +324,8 @@ local function CreateItemPanel(parent, itemtbl, w, h)
 
             InfoTextPanel(parent, v, whitecolor, (w / 2) - 4, 25)
         end
-    elseif (!istable(stattbl) and !table.IsEmpty(stattbl)) or stattbl == nil then
-        local pros, cons, infos = chicagoRP_NPCShop.GetAttStats(itemtbl)
+    elseif (!istable(stattbl) or !table.IsEmpty(stattbl)) or !IsValid(stattbl) then
+        local pros, cons, infos = chicagoRP_NPCShop.GetAttProsCons(itemtbl)
 
         if istable(pros) and !table.IsEmpty(pros) then
             for _, v2 in ipairs(pros) do
@@ -1137,7 +1137,7 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                 local wpnbase = chicagoRP_NPCShop.GetWeaponBase(v2.ent)
 
                 if wpnbase == "arccw" or wpnbase == "arc9" then
-                    local wpntable = table.Add(v2, chicagoRP_NPCShop.GetArcCWStats(v2))
+                    local wpntable = table.Add(v2, chicagoRP_NPCShop.GetArcCWWeaponStats(v2))
                     local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
 
                     sanitizedtbl = scrubbedtbl
@@ -1154,6 +1154,15 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                 elseif wpnbase == "m9k" then
                     local wpntable = table.Add(v2, chicagoRP_NPCShop.GetM9KStats(v2))
                     local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
+
+                    sanitizedtbl = scrubbedtbl
+                end
+
+                local atttbl = GetAttStats(itemtbl.ent)
+
+                if istable(atttbl) and !table.IsEmpty(atttbl) then
+                    local mergedtable = table.Add(v2, atttbl)
+                    local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(mergedtable, false)
 
                     sanitizedtbl = scrubbedtbl
                 end
@@ -1271,6 +1280,7 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
+-- parse atts for filtering table properly (arc9 and convert v into 20m, 20%, 20RPM, etc)
 -- rewrite how stat strings are done (instead of parsing them before filter code, only filter them on display)
 -- rewrite filter loop code
 -- improve override handling

@@ -26,15 +26,37 @@ function chicagoRP_NPCShop.GetWeaponBase(ent)
     end
 end
 
-function chicagoRP_NPCShop.GetAttStats(itemtbl)
-    if chicagoRP_NPCShop.isempty(itemtbl.wpn) then return end
+function chicagoRP_NPCShop.GetAttBase(ent)
+    if chicagoRP_NPCShop.IsArcCWAtt(ent) then
+        return "arccw"
+    elseif chicagoRP_NPCShop.IsARC9Att(ent) then
+        return "arc9"
+    elseif chicagoRP_NPCShop.IsCW2Att(ent) then
+        return "cw2"
+    else
+        return "default"
+    end
+end
 
-    local wepbase = chicagoRP_NPCShop.GetWeaponBase(itemtbl.wpn)
+function chicagoRP_NPCShop.GetAttStats(itemtbl) -- Real
+    local attbase = GetAttBase(itemtbl.ent)
 
-    if wepbase == "arccw" then
+    if attbase == "arccw" then
         return chicagoRP_NPCShop.GetArcCWAttStats(itemtbl.wpn, itemtbl)
-    elseif wepbase == "arc9" then
+    elseif attbase == "arc9" then
         return chicagoRP_NPCShop.GetARC9AttStats(itemtbl.wpn, itemtbl)
+    end
+
+    return nil
+end
+
+function chicagoRP_NPCShop.GetAttProsCons(itemtbl)
+    local attbase = GetAttBase(itemtbl.ent)
+
+    if attbase == "arccw" then
+        return chicagoRP_NPCShop.GetArcCWAttProsCons(itemtbl.wpn, itemtbl)
+    elseif attbase == "arc9" then
+        return chicagoRP_NPCShop.GetARC9AttProsCons(itemtbl.wpn, itemtbl)
     end
 
     return nil

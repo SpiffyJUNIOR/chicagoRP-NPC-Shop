@@ -124,7 +124,7 @@ function chicagoRP_NPCShop.GetARC9Stats(wpnname, pretty)
     return stattbl
 end
 
-function chicagoRP_NPCShop.ARC9GetProsAndCons(wep, enttable)
+function chicagoRP_NPCShop.GetARC9AttProsCons(wep, enttable)
     local prosname = {}
     local prosnum = {}
     local consname = {}

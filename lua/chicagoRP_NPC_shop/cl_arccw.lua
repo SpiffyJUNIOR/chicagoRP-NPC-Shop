@@ -15,6 +15,8 @@ local firemodestrings = {
     ["safe"] = "Safe"
 }
 
+local ArcCW_AttStats = {"MagExtender", "MagReducer", "Bipod", "Silencer", "Mult_BipodRecoil", "Mult_BipodDispersion", "Mult_Damage", "Mult_DamageMin", "Mult_Range", "Mult_RangeMin", "Mult_Penetration", "Mult_MuzzleVelocity", "Mult_PhysBulletMuzzleVelocity", "Mult_MeleeTime", "Mult_MeleeDamage", "Add_MeleeRange", "Mult_Recoil", "Mult_RecoilSide", "Mult_RPM", "Mult_AccuracyMOA", "Mult_HipDispersion", "Mult_SightsDispersion", "Mult_MoveDispersion", "Mult_JumpDispersion", "Mult_ShootVol", "Mult_SpeedMult", "Mult_MoveSpeed", "Mult_SightedSpeedMult", "Mult_SightedMoveSpeed", "Mult_ShootSpeedMult", "Mult_ReloadTime", "Add_BarrelLength", "Mult_DrawTime", "Mult_SightTime", "Mult_CycleTime", "Mult_Sway", "Mult_HeatCapacity", "Mult_HeatDissipation", "Mult_FixTime", "Mult_HeatDelayTime", "Mult_MalfunctionMean", "Add_ClipSize", "Mult_ClipSize", "Override_Ammo", "Override_ClipSize", "Bipod", "UBGL"}
+
 local ArcCW_AutoStats = {
     ["MagExtender"]           = {"autostat.magextender", "override", false,       pr = 317}, -- Attachments
     ["MagReducer"]            = {"autostat.magreducer",  "override", true,        pr = 316},
@@ -149,7 +151,7 @@ local function stattext(wep, att, i, k, dmgboth, flipsigns)
     end
 end
 
-function chicagoRP_NPCShop.GetArcCWAttStats(wep, enttable) -- check the table to make it filter compatible
+function chicagoRP_NPCShop.GetArcCWAttProsCons(wep, enttable) -- check the table to make it filter compatible
     local pros = {}
     local cons = {}
     local infos = {}
@@ -320,7 +322,28 @@ local function ArcCWStatString(str, statval)
     end
 end
 
-function chicagoRP_NPCShop.GetArcCWStats(wpnname, pretty)
+function chicagoRP_NPCShop.GetArcCWAttStats(attname, pretty)
+    local stattbl = {}
+    local atttbl = scripted_ents.GetStored(attname)
+
+    if !istable(atttbl) or table.IsEmpty(atttbl) then return end
+
+    for i = 1, #ArcCW_AttStats do
+        if !chicagoRP_NPCShop.isempty(atttbl.ArcCW_AttStats[i][1]) then
+            local parsedstat = atttbl.ArcCW_AttStats[i][1]
+
+            local paramtbl = {name = ArcCW_AttStats[i][1], stat = parsedstat}
+
+            table.insert(stattbl, paramtbl)
+
+            continue
+        end
+    end
+
+    return stattbl
+end
+
+function chicagoRP_NPCShop.GetArcCWWeaponStats(wpnname, pretty)
     local stattbl = {}
     local wpntbl = weapons.GetStored(wpnname.ent)
     local wpnparams = {"Damage", "DamageMin", "RangeMin", "Range", "Penetration", "MuzzleVelocity", "BarrelLength", "Primary.ClipSize", "Recoil", "RecoilSide", "Delay", "Firemodes", "ShootVol", "AccuracyMOA", "HipDispersion", "MoveDispersion", "JumpDispersion", "Primary.Ammo", "SpeedMult", "SightedSpeedMult", "SightTime", "ShootSpeedMult"}
