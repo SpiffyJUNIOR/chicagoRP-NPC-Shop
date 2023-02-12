@@ -94,15 +94,36 @@ function chicagoRP_NPCShop.GetARC9Stats(wpnname, pretty)
     local stattbl = {}
     local wpntbl = weapons.GetStored(wpnname.ent)
     local wpnparams = {"DamageMax", "DamageMin", "RangeMin", "RangeMax", "Penetration", "PhysBulletMuzzleVelocity", "BarrelLength", "Primary.ClipSize", "Recoil", "RecoilUp" "RecoilSide", "RPM", "Firemodes", "SpreadMultHipFire", "Primary.Ammo", "SpeedMult", "SpeedMultSights", "AimDownSightsTime"}
-    
-    for _, v in ipairs(wpnparams) do
-        if pretty == nil or pretty == false then
-            local paramtbl = {name = v, stat = ARC9StatString(v, wpntbl.[v])}
+    local prettyparams = {"DamageMin", "RangeMin", "Penetration", "PhysBulletMuzzleVelocity", "BarrelLength", "Primary.ClipSize", "Recoil", "RecoilUp" "RecoilSide", "RPM", "Firemodes", "SpreadMultHipFire", "Primary.Ammo", "SpeedMult", "SpeedMultSights", "AimDownSightsTime"}
 
-            table.insert(stattbl, paramtbl)
+    if pretty == nil or pretty == false then
+        for _, v in ipairs(wpnparams) do
+            if pretty == nil or pretty == false then
+                local paramtbl = {name = v, stat = ARC9StatString(v, wpntbl.[v])}
 
-            continue
-        elseif pretty == true
+                table.insert(stattbl, paramtbl)
+
+                continue
+            elseif pretty == true
+                local parsedstat = ARC9StatString(v, wpntbl.[v])
+
+                if v == "Firemodes" then
+                    parsedstat = ConvertFiremodeTable(wpntbl.Firemodes)
+                end
+
+                if v == "Primary.Ammo" then
+                    parsedstat = AmmoString(wpntbl.[v])
+                end
+
+                local paramtbl = {name = v, stat = parsedstat}
+
+                table.insert(stattbl, paramtbl)
+
+                continue
+            end
+        end
+    elseif pretty == true
+        for _, v in ipairs(prettyparams) do
             local parsedstat = ARC9StatString(v, wpntbl.[v])
 
             if v == "Firemodes" then
@@ -111,6 +132,14 @@ function chicagoRP_NPCShop.GetARC9Stats(wpnname, pretty)
 
             if v == "Primary.Ammo" then
                 parsedstat = AmmoString(wpntbl.[v])
+            end
+
+            if v == "DamageMin" and isnumber(wpntbl.["DamageMax"]) then
+                parsedstat = tostring(wpntbl.["DamageMin"]) .. "-" .. tostring(wpntbl.["DamageMax"])
+            end
+
+            if v == "RangeMin" and isnumber(wpntbl.["RangeMax"]) then
+                parsedstat = tostring(wpntbl.["RangeMin"]) .. "m" .. "-" .. tostring(wpntbl.["RangeMax"]) .. "m"
             end
 
             local paramtbl = {name = v, stat = parsedstat}
@@ -124,6 +153,104 @@ function chicagoRP_NPCShop.GetARC9Stats(wpnname, pretty)
     return stattbl
 end
 
+function chicagoRP_NPCShop.GetARC9AttStats(wep, enttable)
+    local stattbl = {}
+
+    local wpntbl = weapons.GetStored(wep)
+    local atttbl = ARC9.GetAttTable(enttable.ent)
+
+    if !chicagoRP_NPCShop.IsARC9Att(enttable.ent) then return end
+
+    for stat, value in pairs(atttbl) do
+        if !isnumber(value) and !isbool(value) then continue end
+        if isnumber(value) then value = math.Round(value, 2) end
+        
+        local autostat = ""
+        local autostatnum = ""
+        local canautostat = false
+        local neg = false
+        local unit = false
+        local negisgood = false
+        local asmain = ""
+
+        local maxlen = 0
+
+        for main, tbl in pairs(ARC9.AutoStatsMains) do
+            if string.len(main) > maxlen and string.StartWith(stat, main) then
+                autostat = ARC9:GetPhrase("autostat." .. main) or main
+                unit = tbl[1]
+                negisgood = tbl[2]
+                asmain = main
+                canautostat = true
+                maxlen = string.len(main)
+            end
+        end
+
+        if !canautostat then
+            continue
+        end
+
+        stat = string.sub(stat, string.len(asmain) + 1, string.len(stat))
+
+        local foundop = false
+        local asop = ""
+
+        for op, func in pairs(ARC9.AutoStatsOperations) do
+            if string.StartWith(stat, op) then
+                local pre, post, isneg = func(value, wpntbl, asmain, unit)
+                autostat = autostat .. post
+                autostatnum = pre
+                neg = isneg
+                foundop = true
+                asop = op
+                break
+            end
+        end
+
+        if asop == "Hook" then continue end
+
+        if !foundop then
+            -- autostat = tostring(value) .. " " .. autostat
+
+            -- if isnumber(value) then neg = value <= (weapon[asmain] or 0) else neg = value end
+            local pre, post, isneg = ARC9.AutoStatsOperations.Override(value, wpntbl, asmain, unit)
+            autostat = autostat .. post
+            autostatnum = pre
+            neg = isneg
+            foundop = true
+            asop = "Override"
+        else
+            stat = string.sub(stat, string.len(asop) + 1, string.len(stat))
+        end
+
+        if stat == "_Priority" then continue end
+
+        if string.len(stat) > 0 then
+            local before = ARC9:GetPhrase("autostat.secondary._beforephrase")
+            local div = ARC9:GetPhrase("autostat.secondary._divider")
+            if div == true then div = "" end
+
+            for cond, postfix in pairs(ARC9.AutoStatsConditions) do
+                if string.StartWith(stat, cond) then
+                    local phrase = (ARC9:GetPhrase("autostat.secondary." .. string.lower(cond)) or "")
+                    if before then
+                        autostat = phrase .. div .. autostat
+                    else
+                        autostat = autostat .. div .. phrase
+                    end
+                    break
+                end
+            end
+        end
+
+        table.insert(stattbl, autostat)
+        table.insert(stattbl, autostatnum)
+    end
+
+    return stattbl
+    -- return pros, cons
+end
+
 function chicagoRP_NPCShop.GetARC9AttProsCons(wep, enttable)
     local prosname = {}
     local prosnum = {}
@@ -131,7 +258,7 @@ function chicagoRP_NPCShop.GetARC9AttProsCons(wep, enttable)
     local consnum = {}
 
     local wpntbl = weapons.GetStored(wep)
-    local atttbl = scripted_ents.GetStored(enttable.ent) -- how do we get entity table
+    local atttbl = ARC9.GetAttTable(enttable.ent)
 
     if !chicagoRP_NPCShop.IsARC9Att(enttable.ent) then return end
 

@@ -190,7 +190,7 @@ local function AddCartButton(parent, x, y, w, h)
     return cartButton
 end
 
-local function InfoTextPanel(parent, text, color, w, h)
+local function InfoTextPanel(parent, texttbl, color, w, h, weapon)
     local textScrPanel = vgui.Create("DPanel", parent)
     itemScrPanel:SetSize(w, h)
     itemScrPanel:Dock(TOP)
@@ -201,7 +201,12 @@ local function InfoTextPanel(parent, text, color, w, h)
     if colortrue then color.a = 50 end
 
     function itemScrPanel:Paint(w, h)
-        draw.DrawText(text, "chicagoRP_NPCShop", 0, 0, whitecolor, TEXT_ALIGN_LEFT)
+        if weapon == true then
+            draw.DrawText(texttbl.name, "chicagoRP_NPCShop", 0, 0, whitecolor, TEXT_ALIGN_LEFT)
+            draw.DrawText(tostring(texttbl.stat), "chicagoRP_NPCShop", 20, 0, whitecolor, TEXT_ALIGN_RIGHT)
+        else
+            draw.DrawText(texttbl, "chicagoRP_NPCShop", 0, 0, whitecolor, TEXT_ALIGN_LEFT)
+        end
 
         if colortrue then
             surface.SetDrawColor(color)
@@ -322,7 +327,7 @@ local function CreateItemPanel(parent, itemtbl, w, h)
         for _, v in ipairs(stattbl) do
             if chicagoRP_NPCShop.isempty(v) then continue end
 
-            InfoTextPanel(parent, v, whitecolor, (w / 2) - 4, 25)
+            InfoTextPanel(parent, v, whitecolor, (w / 2) - 4, 25, true)
         end
     elseif (!istable(stattbl) or !table.IsEmpty(stattbl)) or !IsValid(stattbl) then
         local pros, cons, infos = chicagoRP_NPCShop.GetAttProsCons(itemtbl)
@@ -1280,7 +1285,7 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- parse atts for filtering table properly (arc9 and convert v into 20m, 20%, 20RPM, etc)
+-- combine damagemin and rangemin for filter loop code
 -- rewrite how stat strings are done (instead of parsing them before filter code, only filter them on display)
 -- rewrite filter loop code
 -- improve override handling

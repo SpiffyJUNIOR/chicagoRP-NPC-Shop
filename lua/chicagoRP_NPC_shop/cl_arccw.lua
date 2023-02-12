@@ -15,6 +15,14 @@ local firemodestrings = {
     ["safe"] = "Safe"
 }
 
+local stataffix = {
+    ["AccuracyMOA"] = "MOA",
+    ["BarrelLength"] = "in",
+    ["Delay"] = "RPM",
+    ["MuzzleVelocity"] = "m/s",
+    ["ShootVol"] = "dB"
+end
+
 local ArcCW_AttStats = {"MagExtender", "MagReducer", "Bipod", "Silencer", "Mult_BipodRecoil", "Mult_BipodDispersion", "Mult_Damage", "Mult_DamageMin", "Mult_Range", "Mult_RangeMin", "Mult_Penetration", "Mult_MuzzleVelocity", "Mult_PhysBulletMuzzleVelocity", "Mult_MeleeTime", "Mult_MeleeDamage", "Add_MeleeRange", "Mult_Recoil", "Mult_RecoilSide", "Mult_RPM", "Mult_AccuracyMOA", "Mult_HipDispersion", "Mult_SightsDispersion", "Mult_MoveDispersion", "Mult_JumpDispersion", "Mult_ShootVol", "Mult_SpeedMult", "Mult_MoveSpeed", "Mult_SightedSpeedMult", "Mult_SightedMoveSpeed", "Mult_ShootSpeedMult", "Mult_ReloadTime", "Add_BarrelLength", "Mult_DrawTime", "Mult_SightTime", "Mult_CycleTime", "Mult_Sway", "Mult_HeatCapacity", "Mult_HeatDissipation", "Mult_FixTime", "Mult_HeatDelayTime", "Mult_MalfunctionMean", "Add_ClipSize", "Mult_ClipSize", "Override_Ammo", "Override_ClipSize", "Bipod", "UBGL"}
 
 local ArcCW_AutoStats = {
@@ -290,24 +298,10 @@ local function AmmoString(ammoname)
 end
 
 local function ArcCWStatString(str, statval)
-    if str == "Range" or str == "RangeMin" then
-        return tostring(statval) .. "m"
-    elseif str == "Penetration" then
-        return tostring(statval) .. "mm"
-    elseif str == "MuzzleVelocity" then
-        return tostring(statval) .. "m/s"
-    elseif str == "BarrelLength" then
-        return tostring(statval) .. "in"
-    elseif str == "Recoil" then
+    if str == "Recoil" then
         return statval * 20
     elseif str == "RecoilSide" then
         return statval * 20
-    elseif str == "Delay" then
-        return tostring(statval) .. "RPM"
-    elseif str == "ShootVol" then
-        return tostring(statval) .. "dB"
-    elseif str == "AccuracyMOA" then
-        return tostring(statval) .. " MOA"
     elseif str == "SpeedMult" then
         return statval * 20
     elseif str == "SightedSpeedMult" then
@@ -320,6 +314,16 @@ local function ArcCWStatString(str, statval)
         print("didn't parse arccw stat string")
         return statval
     end
+end
+
+local function ArcCWPrettyStatString(str, statval) -- damage, range, 
+    if !istable(stataffix[str]) then return statval end
+
+    local str = nil
+
+    str = tostring(statval) .. stataffix[str][1]
+
+    return str
 end
 
 function chicagoRP_NPCShop.GetArcCWAttStats(attname, pretty)
@@ -347,16 +351,37 @@ function chicagoRP_NPCShop.GetArcCWWeaponStats(wpnname, pretty)
     local stattbl = {}
     local wpntbl = weapons.GetStored(wpnname.ent)
     local wpnparams = {"Damage", "DamageMin", "RangeMin", "Range", "Penetration", "MuzzleVelocity", "BarrelLength", "Primary.ClipSize", "Recoil", "RecoilSide", "Delay", "Firemodes", "ShootVol", "AccuracyMOA", "HipDispersion", "MoveDispersion", "JumpDispersion", "Primary.Ammo", "SpeedMult", "SightedSpeedMult", "SightTime", "ShootSpeedMult"}
+    local prettyparams = {"Damage", "Range", "Penetration", "MuzzleVelocity", "BarrelLength", "Primary.ClipSize", "Recoil", "RecoilSide", "Delay", "Firemodes", "ShootVol", "AccuracyMOA", "HipDispersion", "MoveDispersion", "JumpDispersion", "Primary.Ammo", "SpeedMult", "SightedSpeedMult", "SightTime", "ShootSpeedMult"}
     
-    for _, v in ipairs(wpnparams) do
-        if pretty == nil or pretty == false then
-            local paramtbl = {name = v, stat = ArcCWStatString(v, wpntbl.[v])}
+    if pretty == nil or pretty == false then
+        for _, v in ipairs(wpnparams) do
+            if pretty == nil or pretty == false then
+                local paramtbl = {name = v, stat = ArcCWStatString(v, wpntbl.[v])}
 
-            table.insert(stattbl, paramtbl)
+                table.insert(stattbl, paramtbl)
 
-            continue
-        elseif pretty == true
-            local parsedstat = ArcCWStatString(v, wpntbl.[v])
+                continue
+            elseif pretty == true
+                local parsedstat = ArcCWStatString(v, wpntbl.[v])
+
+                if v == "Firemodes" then
+                    parsedstat = ConvertFiremodeTable(wpntbl.Firemodes)
+                end
+
+                if v == "Primary.Ammo" then
+                    parsedstat = AmmoString(wpntbl.[v])
+                end
+
+                local paramtbl = {name = v, stat = parsedstat}
+
+                table.insert(stattbl, paramtbl)
+
+                continue
+            end
+        end
+    elseif pretty == true
+        for _, v in ipairs(prettyparams) do
+            local parsedstat = ArcCWPrettyStatString(v, ArcCWStatString(v, wpntbl.[v]))
 
             if v == "Firemodes" then
                 parsedstat = ConvertFiremodeTable(wpntbl.Firemodes)
@@ -366,6 +391,13 @@ function chicagoRP_NPCShop.GetArcCWWeaponStats(wpnname, pretty)
                 parsedstat = AmmoString(wpntbl.[v])
             end
 
+            if v == "Damage" and isnumber(wpntbl.["DamageMin"]) then
+                parsedstat = tostring(wpntbl.["DamageMin"]) .. "-" .. tostring(wpntbl.["Damage"])
+            end
+
+            if v == "Range" and isnumber(wpntbl.["RangeMin"]) then
+                parsedstat = tostring(wpntbl.["RangeMin"]) .. "m" .. "-" .. tostring(wpntbl.["Range"]) .. "m"
+            end
 
             local paramtbl = {name = v, stat = parsedstat}
 
