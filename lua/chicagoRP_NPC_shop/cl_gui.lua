@@ -1096,46 +1096,6 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
             RemoveTimers(restocktimers)
 
             for _, v2 in ipairs(chicagoRP_NPCShop[v.name]) do
-                local itemPanel = nil
-
-                if istable(filtertable) and !table.IsEmpty(filtertable) then
-                    for _, v5 in ipairs(filtertable) do -- how do we get args and compare them?
-                        if v5.typ != v.v5.typ and v5.inc != true then continue end -- for strings
-                        if v5.parse != v.v5.typ then continue end -- for numbers
-                        if v5.min < v.v5.parse then continue end -- for numbers
-                        if v5.max > v.v5.parse then continue end -- for numbers
-                        if isstring(searchstring) and IsValid(string.match(v.ent, searchstring)) then continue end
-
-                        itemPanel = CreateItemPanel(shopPanelLayout, v2, w, h)
-                    end
-                else
-                    itemPanel = CreateItemPanel(shopPanelLayout, v2, w, h)
-                end
-
-                if !table.IsEmpty(discounttable) and !table.IsEmpty(discounttable[v2.ent]) then
-                    itemPanel.discounted = true
-                    itemPanel.discount = discounttable[v2.ent].discount
-                end
-
-                if !table.IsEmpty(quanitytable) and !table.IsEmpty(quanitytable[v2.ent]) then
-                    itemPanel.quanitydifferent = true
-                    itemPanel.quanity = quanitytable[v2.ent].quanity
-                end
-
-                if !table.IsEmpty(OOStable) and !table.IsEmpty(OOStable[v2.ent]) then
-                    itemPanel.outofstock = true
-                end
-
-                if !table.IsEmpty(discounttimers) and !table.IsEmpty(discounttimers[v2.ent]) then
-                    itemPanel.discounted = true
-                    itemPanel.discounttime = discounttimers[v2.ent].timeleft
-                end
-
-                if !table.IsEmpty(restocktimers) and !table.IsEmpty(restocktimers[v2.ent]) then
-                    itemPanel.outofstock = true
-                    itemPanel.restocktime = restocktimers[v2.ent].timeleft
-                end
-
                 local sanitizedtbl = chicagoRP_NPCShop.RemoveStrings(v2, false)
                 local filterLayout = {}
 
@@ -1172,15 +1132,104 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                     sanitizedtbl = scrubbedtbl
                 end
 
+                -- Damage, Damage + DamageMin, DamageMin + DamageMax
+                -- Range, Range + RangeMin, RangeMin + RangeMax
+                if istable(sanitizedtbl) and isnumber(sanitizedtbl["Damage"]) and isnumber(sanitizedtbl["DamageMin"])
+                    local damagemax = sanitizedtbl["Damage"]
+                    local damagemin = sanitizedtbl["DamageMin"]
+
+                    sanitizedtbl["Damage"] = {}
+                    sanitizedtbl["DamageMin"] = nil
+                    sanitizedtbl["Damage"].min = damagemin
+                    sanitizedtbl["Damage"].max = damagemax
+                    sanitizedtbl["Damage"].range = true
+                elseif istable(sanitizedtbl) and isnumber(sanitizedtbl["DamageMin"]) and isnumber(sanitizedtbl["DamageMax"])
+                    local damagemax = sanitizedtbl["DamageMax"]
+                    local damagemin = sanitizedtbl["DamageMin"]
+
+                    sanitizedtbl["Damage"] = {}
+                    sanitizedtbl["DamageMin"] = nil
+                    sanitizedtbl["DamageMax"] = nil
+                    sanitizedtbl["Damage"].min = damagemin
+                    sanitizedtbl["Damage"].max = damagemax
+                    sanitizedtbl["Damage"].range = true
+                end
+
+                if istable(sanitizedtbl) and isnumber(sanitizedtbl["Range"]) and isnumber(sanitizedtbl["RangeMin"])
+                    local rangemax = sanitizedtbl["Range"]
+                    local rangemin = sanitizedtbl["RangeMin"]
+
+                    sanitizedtbl["Range"] = {}
+                    sanitizedtbl["RangeMin"] = nil
+                    sanitizedtbl["Range"].min = rangemin
+                    sanitizedtbl["Range"].max = rangemax
+                    sanitizedtbl["Range"].range = true
+                elseif istable(sanitizedtbl) and isnumber(sanitizedtbl["RangeMin"]) and isnumber(sanitizedtbl["RangeMax"])
+                    local rangemax = sanitizedtbl["RangeMax"]
+                    local rangemin = sanitizedtbl["RangeMin"]
+
+                    sanitizedtbl["Range"] = {}
+                    sanitizedtbl["RangeMin"] = nil
+                    sanitizedtbl["RangeMax"] = nil
+                    sanitizedtbl["Range"].min = rangemin
+                    sanitizedtbl["Range"].max = rangemax
+                    sanitizedtbl["Range"].range = true
+                end
+
+                local itemPanel = nil
+
+                if istable(filtertable) and !table.IsEmpty(filtertable) then
+                    for _, v5 in ipairs(filtertable) do -- how do we get args and compare them?
+                        if chicagoRP.isempty(v.[v5.parse]) then continue end -- removes items that dont have stat
+                        if v5.type == v.[v5.type] and v5.include == false then continue end -- for strings
+
+                        if isstring(searchstring) and chicagoRP_NPCShop.isempty(string.match(v.ent, searchstring)) then continue end
+
+                        if sanitizedtbl[v5.type].range == true then
+                            if v5.min > sanitizedtbl[v5.type].min or v5.max < sanitizedtbl[v5.type].max then continue end -- for numbers
+                        else
+                            if v5.min > v.v5.parse or v5.max < v.v5.parse then continue end -- for numbers
+                        end
+
+                        itemPanel = CreateItemPanel(shopPanelLayout, v2, w, h) -- move outside of table loop
+                    end
+                else
+                    itemPanel = CreateItemPanel(shopPanelLayout, v2, w, h)
+                end
+
+                if !table.IsEmpty(discounttable) and !table.IsEmpty(discounttable[v2.ent]) then
+                    itemPanel.discounted = true
+                    itemPanel.discount = discounttable[v2.ent].discount
+                end
+
+                if !table.IsEmpty(quanitytable) and !table.IsEmpty(quanitytable[v2.ent]) then
+                    itemPanel.quanitydifferent = true
+                    itemPanel.quanity = quanitytable[v2.ent].quanity
+                end
+
+                if !table.IsEmpty(OOStable) and !table.IsEmpty(OOStable[v2.ent]) then
+                    itemPanel.outofstock = true
+                end
+
+                if !table.IsEmpty(discounttimers) and !table.IsEmpty(discounttimers[v2.ent]) then
+                    itemPanel.discounted = true
+                    itemPanel.discounttime = discounttimers[v2.ent].timeleft
+                end
+
+                if !table.IsEmpty(restocktimers) and !table.IsEmpty(restocktimers[v2.ent]) then
+                    itemPanel.outofstock = true
+                    itemPanel.restocktime = restocktimers[v2.ent].timeleft
+                end
+
                 for _, v3 in ipairs(sanitizedtbl) do
                     if isstring(v3) then
-                        local checkBox = FilterCheckBox(filterPanel, chicagoRP_NPCShop.PrettifyString(v3), 40, 20)
+                        local checkBox = FilterCheckBox(filterPanel, v3, 40, 20)
 
                         function checkBox:OnChange(bVal)
                             filtertable[v3] = filtertable[v3] or {}
 
-                            filtertable[v3].typ == v3
-                            filtertable[v3].inc == bVal
+                            filtertable[v3].type = v3
+                            filtertable[v3].include = bVal
 
                             if IsValid(OpenShopPanel) then
                                 OpenShopPanel:InvalidateLayout()
@@ -1198,8 +1247,8 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
 
                             filtertable[v3] = filtertable[v3] or {}
 
-                            filtertable[v3].parse == v3
-                            filtertable[v3].min == val
+                            filtertable[v3].parse = v3
+                            filtertable[v3].min = val
 
                             if IsValid(OpenShopPanel) then
                                 OpenShopPanel:InvalidateLayout()
@@ -1217,8 +1266,8 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
 
                             filtertable[v3] = filtertable[v3] or {}
 
-                            filtertable[v3].parse == v3
-                            filtertable[v3].min == val
+                            filtertable[v3].parse = v3
+                            filtertable[v3].max = val
 
                             if IsValid(OpenShopPanel) then
                                 OpenShopPanel:InvalidateLayout()
@@ -1285,11 +1334,10 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- combine damagemin and rangemin for filter loop code
+-- converge all stats in filter table
 -- rewrite how stat strings are done (instead of parsing them before filter code, only filter them on display)
--- rewrite filter loop code
--- improve override handling
--- removing the weapon/att parse code and moving to strictly stats in tables?
+-- rewrite filter loop code (move CreateItemPanel outside of filter table loop)
+-- improve override handling (make it work, pros/cons/info, bodygroups, stats, etc)
 
 -- later:
 -- how to spawn npcs in an npc table and assign specific tables to them?

@@ -20,3 +20,7 @@ end
 function chicagoRP_NPCShop.GetItemTable(ent)
     return chicagoRP_NPCShop.iteminfo[ent]
 end
+
+function chicagoRP_NPCShop.InRange(number, min, max)
+    return number >= min and number <= max
+end

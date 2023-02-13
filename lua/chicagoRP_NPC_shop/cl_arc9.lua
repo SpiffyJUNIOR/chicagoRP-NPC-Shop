@@ -22,53 +22,14 @@ local function AmmoString(ammoname)
 end
 
 local function ARC9StatString(str, statval)
-    if str == "RangeMax" or str == "RangeMin" then
-        return tostring(statval) .. "m"
-    elseif str == "Penetration" then
-        return tostring(statval) .. "mm"
-    elseif str == "PhysBulletMuzzleVelocity" then
-        return tostring(math.Round(statval / 30)) .. "m/s"
-    elseif str == "BarrelLength" then
-        return tostring(statval) .. "in"
-    elseif str == "Recoil" then
-        return statval * 20
-    elseif str == "RecoilUp" then
-        return statval * 20
-    elseif str == "RecoilSide" then
-        return statval * 20
-    elseif str == "RPM" then
-        return tostring(statval) .. "RPM"
-    elseif str == "SpeedMult" then
-        return statval * 20
-    elseif str == "SpreadMultHipFire" then
-        return statval * 20
-    elseif str == "SpeedMultSights" then
-        return statval * 20
+    if str == "PhysBulletMuzzleVelocity" then
+        return math.Round(statval / 30)
+    elseif str == "Recoil" or str == "RecoilUp" or str == "RecoilSide" or str == "SpeedMult" or str == "SpreadMultHipFire" or str == "SpeedMultSights" then
+        return math.Round(statval * 20)
     else
         print("didn't parse arc9 stat string")
         return statval
     end
-end
-
-local function ARC9FiremodesToString(firemodetbl)
-    local concattedstr = ""
-
-    for _, v in ipairs(firemodetbl)
-        local mode = v.Mode
-        local str = nil
-
-        if mode >= -1 then 
-            str = chicagoRP_NPCShop.PrettifyString(string.lower(ARC9:GetPhrase("hud.firemode.auto")))
-        elseif mode == 0 then
-            str = chicagoRP_NPCShop.PrettifyString(string.lower(ARC9:GetPhrase("hud.firemode.safe")))
-        elseif mode == 1 then
-            str = chicagoRP_NPCShop.PrettifyString(string.lower(ARC9:GetPhrase("hud.firemode.single")))
-        elseif mode <= 2 then
-            str = tostring(arc9_mode.Mode) .. "-" .. chicagoRP_NPCShop.PrettifyString(string.lower(ARC9:GetPhrase("hud.firemode.burst")))
-        end
-    end
-
-    return concattedstr
 end
 
 local function ConvertFiremodeTable(firemodetbl)
@@ -83,7 +44,7 @@ local function ConvertFiremodeTable(firemodetbl)
         elseif mode == 1 then
             v.Mode = firemodestrings["semi"]
         elseif mode <= 2 then
-            v.Mode = tostring(v.Mode) .. "-" .. firemodestrings["burst"]
+            v.Mode = tostring(v.Mode) .. "-Round " .. firemodestrings["burst"]
         end
     end
 
@@ -98,29 +59,15 @@ function chicagoRP_NPCShop.GetARC9Stats(wpnname, pretty)
 
     if pretty == nil or pretty == false then
         for _, v in ipairs(wpnparams) do
-            if pretty == nil or pretty == false then
-                local paramtbl = {name = v, stat = ARC9StatString(v, wpntbl.[v])}
+            local paramtbl = {name = v, stat = ARC9StatString(v, wpntbl.[v])}
 
-                table.insert(stattbl, paramtbl)
-
-                continue
-            elseif pretty == true
-                local parsedstat = ARC9StatString(v, wpntbl.[v])
-
-                if v == "Firemodes" then
-                    parsedstat = ConvertFiremodeTable(wpntbl.Firemodes)
-                end
-
-                if v == "Primary.Ammo" then
-                    parsedstat = AmmoString(wpntbl.[v])
-                end
-
-                local paramtbl = {name = v, stat = parsedstat}
-
-                table.insert(stattbl, paramtbl)
-
-                continue
+            if v == "Firemodes" then
+                paramtbl = {name = v, stat = ConvertFiremodeTable(wpntbl.Firemodes)}
             end
+
+            table.insert(stattbl, paramtbl)
+
+            continue
         end
     elseif pretty == true
         for _, v in ipairs(prettyparams) do

@@ -1,3 +1,8 @@
+local by = " by "
+local percentage = "%"
+local tempPositive = {}
+local tempNegative = {}
+
 local ammostrings = {
     ["pistol"] = "Pistol",
     ["smg1"] = "Carbine",
@@ -35,6 +40,11 @@ local firemodestrings = {
     ["safe"] = "Safe"
 }
 
+local stataffix = {
+    ["FireDelay"] = "RPM",
+    ["MuzzleVelocity"] = "m/s"
+}
+
 local function AmmoString(ammoname)
     if chicagoRP_NPCShop.isempty(ammoname) then return end
 
@@ -65,17 +75,7 @@ local function ConvertFiremodeTable(firemodetbl)
 end
 
 local function CW2StatString(str, statval)
-    if str == "MuzzleVelocity" then
-        return tostring(statval) .. "m/s"
-    elseif str == "Recoil" then
-        return math.Round(statval * 20)
-    elseif str == "FireDelay" then
-        return tostring(statval) .. "RPM"
-    elseif str == "SpeedDec" then
-        return math.Round(statval * 20)
-    elseif str == "HipSpread" then
-        return math.Round(statval * 20)
-    elseif str == "AimSpread" then
+    if str == "Recoil" or str == "SpeedDec" or str == "HipSpread" or str == "AimSpread" then
         return math.Round(statval * 20)
     else
         print("didn't parse cw2 stat string")
@@ -83,23 +83,140 @@ local function CW2StatString(str, statval)
     end
 end
 
-function chicagoRP_NPCShop.GetCW2Stats(wpnname, pretty)
+local function CW2PrettyStatString(str, statval)
+    if !istable(stataffix[str]) then return statval end
+
+    local str = nil
+
+    str = tostring(statval) .. stataffix[str][1]
+
+    return str
+end
+
+function chicagoRP_NPCShop.GetCW2AttStats(attname)
+    local stattbl = {}
+    local atttbl = scripted_ents.GetStored(attname)
+
+    if !istable(atttbl) or table.IsEmpty(atttbl) then return end
+
+    for _, v in ipairs(atttbl.statModifiers) do
+        local paramtbl = {name = v, stat = v[1]}
+
+        table.insert(stattbl, paramtbl)
+
+        continue
+    end
+
+    return stattbl
+end
+
+local function CW2FormatWeaponStatText(target, amount)
+    local statText = CustomizableWeaponry.knownStatTexts[target]
+    
+    if statText then
+        -- return text and colors as specified in the table
+        if amount < 0 then
+            return statText.lesser .. by .. math.Round(math.abs(amount * 100), 1) .. percentage, statText.lesserColor
+        elseif amount > 0 then
+            return statText.greater .. by .. math.Round(math.abs(amount * 100), 1) .. percentage, statText.greaterColor
+        end
+    end
+    
+    -- no result, rip
+    return nil
+end
+
+local function CW2PrepareText(text, color)
+    if text and color then -- sort into 2 different tables
+        if color == CustomizableWeaponry.textColors.POSITIVE then
+            table.insert(tempPositive, {t = text, c = color})
+        else
+            table.insert(tempNegative, {t = text, c = color})
+        end
+    end
+end
+
+function chicagoRP_NPCShop.GetCW2AttProsCons(itemtbl)
+    local att = scripted_ents.GetStored(itemtbl.ent)
+
+    if !chicagoRP_NPCShop.IsArcCWAtt(itemtbl.ent) then return end
+
+    if !att.statModifiers then -- no point in doing anything if there are no stat modifiers
+        return nil
+    end
+
+    att.description = {} -- create a new desc table regardless
+
+    local pros = {}
+    local cons = {}
+    
+    if att._description then
+        for key, data in ipairs(att._description) do
+            att.description[key] = data
+        end
+    end
+    
+    local pos = 0
+    
+    -- get position of positive stat text
+    for key, value in ipairs(att.description) do
+        if value.c == CustomizableWeaponry.textColors.POSITIVE or value.c == CustomizableWeaponry.textColors.VPOSITIVE then
+            pos = math.max(pos, key) + 1
+        end
+    end
+    
+    -- if there is none, assume first possible position
+    if pos == 0 then
+        pos = #att.description + 1
+    end
+    
+    -- loop through, format negative and positive texts into 2 separate tables
+    for stat, amount in pairs(att.statModifiers) do
+        CW2PrepareText(CW2FormatWeaponStatText(stat, amount))
+    end
+    
+    for stat, data in pairs(CustomizableWeaponry.knownVariableTexts) do
+        if att[stat] then
+            CW2PrepareText(CW2FormatWeaponStatText(att, stat, data))
+        end
+    end
+    
+    -- now insert the positive text first and increment the position of positive text by 1 (since it's positive text we're inserting)
+    for _, data in ipairs(tempPositive) do
+        table.insert(pros, pos, data)
+        pos = pos + 1
+    end
+    
+    -- now insert negative text, but don't increment the position, since it's negative text
+    for _, data in ipairs(tempNegative) do
+        table.insert(cons, pos, data)
+    end
+    
+    table.Empty(tempNegative)
+    table.Empty(tempPositive)
+
+    return pros, cons
+end
+
+function chicagoRP_NPCShop.GetCW2WeaponStats(wpnname, pretty)
     local stattbl = {}
     local wpntbl = weapons.GetStored(wpnname.ent)
     local wpnparams = {"Damage", "Recoil", "MuzzleVelocity", "FireDelay", "AimSpread", "HipSpread", "Primary.ClipSize", "ReloadTime", "SpeedDec", "FireModes", "Primary.Ammo"}
     
-    for _, v in ipairs(wpnparams) do
-        if pretty == nil or pretty == false then
+    if pretty == nil or pretty == false then
+        for _, v in ipairs(wpnparams) do
             local paramtbl = {name = v, stat = CW2StatString(v, wpntbl.[v])}
 
             table.insert(stattbl, paramtbl)
 
             continue
-        elseif pretty == true
-            local parsedstat = CW2StatString(v, wpntbl.[v])
+        end
+    elseif pretty == true
+        for _, v in ipairs(wpnparams) do
+            local parsedstat = CW2PrettyStatString(v, CW2StatString(v, wpntbl.[v]))
 
             if v == "FireModes" then
-                parsedstat = ConvertFiremodeTable
+                parsedstat = ConvertFiremodeTable(wpntbl.FireModes)
             end
 
             if v == "Primary.Ammo" then

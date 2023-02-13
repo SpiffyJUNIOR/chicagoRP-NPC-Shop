@@ -45,6 +45,8 @@ function chicagoRP_NPCShop.GetAttStats(itemtbl) -- Real
         return chicagoRP_NPCShop.GetArcCWAttStats(itemtbl.wpn, itemtbl)
     elseif attbase == "arc9" then
         return chicagoRP_NPCShop.GetARC9AttStats(itemtbl.wpn, itemtbl)
+    elseif attbase == "cw2" then
+        return chicagoRP_NPCShop.GetCW2AttStats(itemtbl.wpn, itemtbl)
     end
 
     return nil
@@ -57,6 +59,8 @@ function chicagoRP_NPCShop.GetAttProsCons(itemtbl)
         return chicagoRP_NPCShop.GetArcCWAttProsCons(itemtbl.wpn, itemtbl)
     elseif attbase == "arc9" then
         return chicagoRP_NPCShop.GetARC9AttProsCons(itemtbl.wpn, itemtbl)
+    elseif attbase == "cw2"
+        return chicagoRP_NPCShop.GetCW2AttProsCons(itemtbl)
     end
 
     return nil
