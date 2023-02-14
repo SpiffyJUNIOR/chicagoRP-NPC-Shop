@@ -202,10 +202,11 @@ local function InfoTextPanel(parent, texttbl, color, w, h, weapon)
 
     function itemScrPanel:Paint(w, h)
         if weapon == true then
-            draw.DrawText(texttbl.name, "chicagoRP_NPCShop", 0, 0, whitecolor, TEXT_ALIGN_LEFT)
+
+            draw.DrawText(chicagoRP_NPCShop.GetPhrase(texttbl.name), "chicagoRP_NPCShop", 0, 0, whitecolor, TEXT_ALIGN_LEFT)
             draw.DrawText(tostring(texttbl.stat), "chicagoRP_NPCShop", 20, 0, whitecolor, TEXT_ALIGN_RIGHT)
         else
-            draw.DrawText(texttbl, "chicagoRP_NPCShop", 0, 0, whitecolor, TEXT_ALIGN_LEFT)
+            draw.DrawText(chicagoRP_NPCShop.GetPhrase(texttbl), "chicagoRP_NPCShop", 0, 0, whitecolor, TEXT_ALIGN_LEFT)
         end
 
         if colortrue then
@@ -313,13 +314,13 @@ local function CreateItemPanel(parent, itemtbl, w, h)
     local stattbl = nil
     local wpnbase = chicagoRP_NPCShop.GetWeaponBase(itemtbl.ent)
 
-    if wpnbase == "arccw" then
+    if wpnbase == "arccw" and itemtbl.override != true then
         stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetArcCWWeaponStats(itemtbl, true))
-    elseif wpnbase == "arc9" then
+    elseif wpnbase == "arc9" and itemtbl.override != true then
         stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetARC9WeaponStats(itemtbl, true))
-    elseif wpnbase == "cw2" then
+    elseif wpnbase == "cw2" and itemtbl.override != true then
         stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetCW2WeaponStats(itemtbl, true))
-    elseif wpnbase == "m9k" then
+    elseif wpnbase == "m9k" and itemtbl.override != true then
         stattbl = table.Add(itemtbl, chicagoRP_NPCShop.GetM9KWeaponStats(itemtbl, true))
     end
 
@@ -330,7 +331,10 @@ local function CreateItemPanel(parent, itemtbl, w, h)
             InfoTextPanel(parent, v, whitecolor, (w / 2) - 4, 25, true)
         end
     elseif (!istable(stattbl) or !table.IsEmpty(stattbl)) or !IsValid(stattbl) then
-        local pros, cons, infos = chicagoRP_NPCShop.GetAttProsCons(itemtbl)
+        local pros, cons, info = chicagoRP_NPCShop.GetAttProsCons(itemtbl)
+
+        if itemtbl.override == true then
+            pros, cons, info = itemtbl.pros, itemtbl.cons, itemtbl.info
 
         if istable(pros) and !table.IsEmpty(pros) then
             for _, v2 in ipairs(pros) do
@@ -348,8 +352,8 @@ local function CreateItemPanel(parent, itemtbl, w, h)
             end
         end
 
-        if istable(infos) and !table.IsEmpty(infos) then
-            for _, v2 in ipairs(infos) do
+        if istable(info) and !table.IsEmpty(info) then
+            for _, v2 in ipairs(info) do
                 if chicagoRP_NPCShop.isempty(v2) then continue end
 
                 InfoTextPanel(parent, v2, whitecolor, (w / 2) - 4, 25)
@@ -467,13 +471,11 @@ local function FilterMinMaxSort(parent, text, w, h)
     typeLabel:SetPos(0, 0)
     typeLabel:SetSize(10, 10)
     typeLabel:SetFont("chicagoRP_NPCShop")
-    typeLabel:SetText(text)
-    typeLabel:SetTextColor(whitecolor)
 
     typeLabel.Think = nil
 
     function typeLabel:Paint(w, h)
-        draw.DrawText(self:GetText(), "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
+        draw.DrawText(chicagoRP_NPCShop.GetPhrase(text), "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
 
         return nil
     end
@@ -489,20 +491,6 @@ local function FilterMinMaxSort(parent, text, w, h)
 
         return nil
     end
-
-    -- local oOnValueChange = minTextEntry.OnValueChange
-
-    -- function minTextEntry:OnValueChange(val)
-    --     oOnValueChange(val)
-    --     local newtext = self:GetValue()
-
-    --     if IsValid(OpenShopPanel) then
-    --         OpenShopPanel:InvalidateLayout()
-    --     end
-
-    --     print(newtext)
-    --     print(value)
-    -- end
 
     local hyphenLabel = vgui.Create("DLabel", sortPanel)
     hyphenLabel:SetPos(45, 0)
@@ -531,20 +519,6 @@ local function FilterMinMaxSort(parent, text, w, h)
         return nil
     end
 
-    -- local nOnValueChange = maxTextEntry.OnValueChange
-
-    -- function maxTextEntry:OnValueChange(val)
-    --     nOnValueChange(val)
-    --     local newtext = self:GetValue()
-
-    --     if IsValid(OpenShopPanel) then
-    --         OpenShopPanel:InvalidateLayout()
-    --     end
-
-    --     print(newtext)
-    --     print(value)
-    -- end
-
     return sortPanel, minTextEntry, maxTextEntry
 end
 
@@ -559,7 +533,7 @@ local function FilterCheckBox(parent, text, w, h) -- how do we do togglable opti
 
     function checkBox:Paint(w, h)
         draw.RoundedBox(2, 0, 0, w, h, graycolor)
-        draw.DrawText("Armor Levels", "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
+        draw.DrawText(chicagoRP_NPCShop.GetPhrase(text), "chicagoRP_NPCShop", 0, 4, whitecolor, TEXT_ALIGN_LEFT)
 
         return nil
     end
@@ -765,7 +739,7 @@ local function ExpandedItemPanel(itemtbl)
     local quanitySel = QuanitySelector(itemFrame, 500, 820, 40, 20)
     local infoText = InfoText(itemtbl.infotext, textPanel)
 
-    if isCW2Att and istable(itemtbl.bodygroups) and !table.IsEmpty(itemtbl.bodygroups) then
+    if isCW2Att and istable(itemtbl.bodygroups) and !table.IsEmpty(itemtbl.bodygroups) and itemtbl.override != true then
         local weapon = itemtbl.wpn
         local parenttbl = weapons.GetStored(weapon)
         local weaponmodel = parenttbl.ViewModel or parenttbl.Model
@@ -775,7 +749,7 @@ local function ExpandedItemPanel(itemtbl)
         for _, v in ipairs(itemtbl.bodygroups)
             modelPanel.Entity:SetBodygroup(v[1], v[2])
         end
-    elseif isCW2Att and istable(enttbl) then
+    elseif isCW2Att and istable(enttbl) and itemtbl.override != true then
         modelPanel:SetModel("models/weapons/c_toolgun.mdl")
         print("cw2 att model fallback")
     end
@@ -784,7 +758,7 @@ local function ExpandedItemPanel(itemtbl)
         modelPanel.Entity:SetBodyGroups(chicagoRP_NPCShop.ARC9WeaponBodygroups(itemtbl.ent))
     end
 
-    if isAtt and istable(enttbl) and !table.IsEmpty(enttbl) and !table.IsEmpty(enttbl.ActivateElements) then
+    if isAtt and istable(enttbl) and !table.IsEmpty(enttbl) and !table.IsEmpty(enttbl.ActivateElements) and itemtbl.override != true then
         local weapon = itemtbl.wpn
         local parenttbl = weapons.GetStored(weapon)
         local bodygroups = chicagoRP_NPCShop.FetchBodygroups(itemtbl)
@@ -793,6 +767,12 @@ local function ExpandedItemPanel(itemtbl)
         modelPanel:SetModel(weaponmodel)
 
         for _, v in ipairs(bodygroups) do
+            modelPanel.Entity:SetBodygroup(v[1], v[2])
+        end
+    end
+
+    if itemtbl.override == true
+        for _, v in ipairs(itemtbl.bodygroups) do
             modelPanel.Entity:SetBodygroup(v[1], v[2])
         end
     end
@@ -932,6 +912,80 @@ local function CartViewPanel(parent, x, y, w, h)
     chicagoRP_NPCShop.SmoothScrollBar(cartScrollBar)
 
     return cartScrollPanel
+end
+
+local function FetchScrubbedWepTbl(inputtbl)
+    local wpnbase = chicagoRP_NPCShop.GetWeaponBase(inputtbl.ent)
+
+    if wpnbase == "arccw" or wpnbase == "arc9" then
+        local wpntable = table.Add(inputtbl, chicagoRP_NPCShop.GetArcCWWeaponStats(inputtbl))
+        local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
+
+        return scrubbedtbl
+    elseif wpnbase == "arc9" then
+        local wpntable = table.Add(inputtbl, chicagoRP_NPCShop.GetARC9Stats(inputtbl))
+        local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
+
+        return scrubbedtbl
+    elseif wpnbase == "cw2" then
+        local wpntable = table.Add(inputtbl, chicagoRP_NPCShop.GetCW2Stats(inputtbl))
+        local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
+
+        return scrubbedtbl
+    elseif wpnbase == "m9k" then
+        local wpntable = table.Add(inputtbl, chicagoRP_NPCShop.GetM9KStats(inputtbl))
+        local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
+
+        return scrubbedtbl
+    else
+        return inputtbl
+    end
+end
+
+local function MergeMinMaxStats(inputtbl)
+    if istable(inputtbl) and isnumber(inputtbl["Damage"]) and isnumber(inputtbl["DamageMin"])
+        local damagemax = inputtbl["Damage"]
+        local damagemin = inputtbl["DamageMin"]
+
+        inputtbl["Damage"] = {}
+        inputtbl["DamageMin"] = nil
+        inputtbl["Damage"].min = damagemin
+        inputtbl["Damage"].max = damagemax
+        inputtbl["Damage"].range = true
+    elseif istable(inputtbl) and isnumber(inputtbl["DamageMin"]) and isnumber(inputtbl["DamageMax"])
+        local damagemax = inputtbl["DamageMax"]
+        local damagemin = inputtbl["DamageMin"]
+
+        inputtbl["Damage"] = {}
+        inputtbl["DamageMin"] = nil
+        inputtbl["DamageMax"] = nil
+        inputtbl["Damage"].min = damagemin
+        inputtbl["Damage"].max = damagemax
+        inputtbl["Damage"].range = true
+    end
+
+    if istable(inputtbl) and isnumber(inputtbl["Range"]) and isnumber(inputtbl["RangeMin"])
+        local rangemax = inputtbl["Range"]
+        local rangemin = inputtbl["RangeMin"]
+
+        inputtbl["Range"] = {}
+        inputtbl["RangeMin"] = nil
+        inputtbl["Range"].min = rangemin
+        inputtbl["Range"].max = rangemax
+        inputtbl["Range"].range = true
+    elseif istable(inputtbl) and isnumber(inputtbl["RangeMin"]) and isnumber(inputtbl["RangeMax"])
+        local rangemax = inputtbl["RangeMax"]
+        local rangemin = inputtbl["RangeMin"]
+
+        inputtbl["Range"] = {}
+        inputtbl["RangeMin"] = nil
+        inputtbl["RangeMax"] = nil
+        inputtbl["Range"].min = rangemin
+        inputtbl["Range"].max = rangemax
+        inputtbl["Range"].range = true
+    end
+
+    return inputtbl
 end
 
 net.Receive("chicagoRP_NPCShop_invalidatelclient", function()
@@ -1098,32 +1152,17 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
             for _, v2 in ipairs(chicagoRP_NPCShop[v.name]) do
                 local sanitizedtbl = chicagoRP_NPCShop.RemoveStrings(v2, false)
                 local filterLayout = {}
+                local atttbl = {}
 
-                local wpnbase = chicagoRP_NPCShop.GetWeaponBase(v2.ent)
+                local skip = false
 
-                if wpnbase == "arccw" or wpnbase == "arc9" then
-                    local wpntable = table.Add(v2, chicagoRP_NPCShop.GetArcCWWeaponStats(v2))
-                    local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
-
-                    sanitizedtbl = scrubbedtbl
-                elseif wpnbase == "arc9" then
-                    local wpntable = table.Add(v2, chicagoRP_NPCShop.GetARC9Stats(v2))
-                    local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
-
-                    sanitizedtbl = scrubbedtbl
-                elseif wpnbase == "cw2" then
-                    local wpntable = table.Add(v2, chicagoRP_NPCShop.GetCW2Stats(v2))
-                    local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
-
-                    sanitizedtbl = scrubbedtbl
-                elseif wpnbase == "m9k" then
-                    local wpntable = table.Add(v2, chicagoRP_NPCShop.GetM9KStats(v2))
-                    local scrubbedtbl = chicagoRP_NPCShop.RemoveStrings(wpntable, false)
-
-                    sanitizedtbl = scrubbedtbl
+                if v2.override != true then
+                    sanitizedtbl = FetchScrubbedWepTbl(v2)
                 end
 
-                local atttbl = GetAttStats(itemtbl.ent)
+                if v2.override != true then
+                    atttbl = GetAttStats(v2.ent)
+                end
 
                 if istable(atttbl) and !table.IsEmpty(atttbl) then
                     local mergedtable = table.Add(v2, atttbl)
@@ -1132,68 +1171,32 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                     sanitizedtbl = scrubbedtbl
                 end
 
-                -- Damage, Damage + DamageMin, DamageMin + DamageMax
-                -- Range, Range + RangeMin, RangeMin + RangeMax
-                if istable(sanitizedtbl) and isnumber(sanitizedtbl["Damage"]) and isnumber(sanitizedtbl["DamageMin"])
-                    local damagemax = sanitizedtbl["Damage"]
-                    local damagemin = sanitizedtbl["DamageMin"]
-
-                    sanitizedtbl["Damage"] = {}
-                    sanitizedtbl["DamageMin"] = nil
-                    sanitizedtbl["Damage"].min = damagemin
-                    sanitizedtbl["Damage"].max = damagemax
-                    sanitizedtbl["Damage"].range = true
-                elseif istable(sanitizedtbl) and isnumber(sanitizedtbl["DamageMin"]) and isnumber(sanitizedtbl["DamageMax"])
-                    local damagemax = sanitizedtbl["DamageMax"]
-                    local damagemin = sanitizedtbl["DamageMin"]
-
-                    sanitizedtbl["Damage"] = {}
-                    sanitizedtbl["DamageMin"] = nil
-                    sanitizedtbl["DamageMax"] = nil
-                    sanitizedtbl["Damage"].min = damagemin
-                    sanitizedtbl["Damage"].max = damagemax
-                    sanitizedtbl["Damage"].range = true
-                end
-
-                if istable(sanitizedtbl) and isnumber(sanitizedtbl["Range"]) and isnumber(sanitizedtbl["RangeMin"])
-                    local rangemax = sanitizedtbl["Range"]
-                    local rangemin = sanitizedtbl["RangeMin"]
-
-                    sanitizedtbl["Range"] = {}
-                    sanitizedtbl["RangeMin"] = nil
-                    sanitizedtbl["Range"].min = rangemin
-                    sanitizedtbl["Range"].max = rangemax
-                    sanitizedtbl["Range"].range = true
-                elseif istable(sanitizedtbl) and isnumber(sanitizedtbl["RangeMin"]) and isnumber(sanitizedtbl["RangeMax"])
-                    local rangemax = sanitizedtbl["RangeMax"]
-                    local rangemin = sanitizedtbl["RangeMin"]
-
-                    sanitizedtbl["Range"] = {}
-                    sanitizedtbl["RangeMin"] = nil
-                    sanitizedtbl["RangeMax"] = nil
-                    sanitizedtbl["Range"].min = rangemin
-                    sanitizedtbl["Range"].max = rangemax
-                    sanitizedtbl["Range"].range = true
-                end
+                sanitizedtbl = MergeMinMaxStats(sanitizedtbl)
 
                 local itemPanel = nil
 
                 if istable(filtertable) and !table.IsEmpty(filtertable) then
                     for _, v5 in ipairs(filtertable) do -- how do we get args and compare them?
+                        skip = true
+
                         if chicagoRP.isempty(v.[v5.parse]) then continue end -- removes items that dont have stat
                         if v5.type == v.[v5.type] and v5.include == false then continue end -- for strings
 
                         if isstring(searchstring) and chicagoRP_NPCShop.isempty(string.match(v.ent, searchstring)) then continue end
 
-                        if sanitizedtbl[v5.type].range == true then
+                        if v5.range == true then
                             if v5.min > sanitizedtbl[v5.type].min or v5.max < sanitizedtbl[v5.type].max then continue end -- for numbers
                         else
                             if v5.min > v.v5.parse or v5.max < v.v5.parse then continue end -- for numbers
                         end
 
-                        itemPanel = CreateItemPanel(shopPanelLayout, v2, w, h) -- move outside of table loop
+                        skip = false
                     end
                 else
+                    itemPanel = CreateItemPanel(shopPanelLayout, v2, w, h)
+                end
+
+                if skip == false then
                     itemPanel = CreateItemPanel(shopPanelLayout, v2, w, h)
                 end
 
@@ -1221,9 +1224,14 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                     itemPanel.restocktime = restocktimers[v2.ent].timeleft
                 end
 
-                for _, v3 in ipairs(sanitizedtbl) do
-                    if isstring(v3) then
+                for k, v3 in ipairs(sanitizedtbl) do 
+                -- k: Damage | v: 20
+                -- k: Firemodes | v: (table) | v[1]: "Full-Auto" | v[2]: "Semi-Auto" | v[3]: "Safe" | etc you get it
+                -- k: Type | v: "Optic"
+                -- k: Type | v: "Stock"
+                    if isstring(v3[1]) and filterLayout[v3[1]] == nil then
                         local checkBox = FilterCheckBox(filterPanel, v3, 40, 20)
+                        filterLayout[v3[1]] = true
 
                         function checkBox:OnChange(bVal)
                             filtertable[v3] = filtertable[v3] or {}
@@ -1235,20 +1243,18 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                                 OpenShopPanel:InvalidateLayout()
                             end
                         end
-                    elseif isnumber(v3) and filterLayout[v3] == (false or nil) then
-                        local parentPanel, minSorter, maxSorter = FilterMinMaxSort(filterPanel, v3, w, h)
-                        filterLayout[v3] = true
-
-                        local minOnValueChange = minSorter.OnValueChange
+                    elseif (isnumber(v3[1]) or v3[1].range == true) and filterLayout[k.v3] == nil then
+                        local parentPanel, minSorter, maxSorter = FilterMinMaxSort(filterPanel, k.v3, w, h)
+                        filterLayout[k.v3] = true
 
                         function maxSorter:OnValueChange(val)
-                            minOnValueChange(val)
                             local newtext = self:GetValue()
 
                             filtertable[v3] = filtertable[v3] or {}
 
                             filtertable[v3].parse = v3
                             filtertable[v3].min = val
+                            filtertable[v3].range = true
 
                             if IsValid(OpenShopPanel) then
                                 OpenShopPanel:InvalidateLayout()
@@ -1258,16 +1264,14 @@ net.Receive("chicagoRP_NPCShop_GUI", function()
                             print(value)
                         end
 
-                        local maxOnValueChange = maxTextEntry.OnValueChange
-
                         function maxSorter:OnValueChange(val)
-                            maxOnValueChange(val)
                             local newtext = self:GetValue()
 
                             filtertable[v3] = filtertable[v3] or {}
 
                             filtertable[v3].parse = v3
                             filtertable[v3].max = val
+                            filtertable[v3].range = true
 
                             if IsValid(OpenShopPanel) then
                                 OpenShopPanel:InvalidateLayout()
@@ -1334,10 +1338,6 @@ end)
 print("chicagoRP NPC Shop GUI loaded!")
 
 -- todo:
--- converge all stats in filter table
--- rewrite how stat strings are done (instead of parsing them before filter code, only filter them on display)
--- rewrite filter loop code (move CreateItemPanel outside of filter table loop)
--- improve override handling (make it work, pros/cons/info, bodygroups, stats, etc)
 
 -- later:
 -- how to spawn npcs in an npc table and assign specific tables to them?

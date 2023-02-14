@@ -1,3 +1,51 @@
+local langstrings = {
+    ["DamageMin"] = "Damage", -- ARC9
+    ["RangeMin"] = "Range",
+    ["PhysBulletMuzzleVelocity"] = "Muzzle Velocity",
+    ["RecoilUp"] = "Recoil",
+    ["RPM"] = "Firerate",
+    ["SpreadMultHipFire"] = "Hipfire Spread",
+    ["SpeedMultSights"] = "ADS Movement Speed",
+    ["AimDownSightsTime"] = "ADS Time"
+    ["Damage"] = "Damage", -- ArcCW
+    ["Range"] = "Range",
+    ["Penetration"] = "Penetration",
+    ["MuzzleVelocity"] = "Muzzle Velocity",
+    ["BarrelLength"] = "Barrel Length",
+    ["Primary.ClipSize"] = "Magazine Size",
+    ["Recoil"] = "Recoil",
+    ["RecoilSide"] = "Recoil (Horizontal)",
+    ["Delay"] = "Firerate",
+    ["Firemodes"] = "Firemodes",
+    ["ShootVol"] = "Shoot Volume",
+    ["AccuracyMOA"] = "Accuracy",
+    ["HipDispersion"] = "Hipfire Spread",
+    ["MoveDispersion"] = "Move Spread",
+    ["JumpDispersion"] = "Jump Spread",
+    ["Primary.Ammo"] = "Ammo",
+    ["SpeedMult"] = "Movement Speed",
+    ["SightedSpeedMult"] = "ADS Movement Speed",
+    ["SightTime"] = "ADS Time",
+    ["ShootSpeedMult"] = "Shooting Movement Speed",
+    ["FireDelay"] = "Firerate", -- CW2
+    ["AimSpread"] = "Accuracy",
+    ["HipSpread"] = "Hipfire Spread",
+    ["ReloadTime"] = "Reload Speed",
+    ["SpeedDec"] = "Movement Speed",
+    ["Primary.Damage"] = "Damage", -- M9K
+    ["Primary.Spread"] = "Accuracy",
+    ["Primary.RPM"] = "Firerate",
+    ["Primary.KickUp"] = "Recoil",
+    ["Primary.KickHorizontal"] = "Recoil (Horizontal)",
+    ["Primary.Automatic"] = "Firemodes"
+}
+
+function chicagoRP_NPCShop.GetPhrase(str)
+    if istable(str) or chicagoRP_NPCShop.isempty(str) then print("GetPhrase stopped!") return str end
+
+    return langstrings[str]
+end
+
 function chicagoRP_NPCShop.PrettifyString(str)
     local cachestr = str
     if string.StartWith(str, "%u") then return str end
@@ -5,17 +53,6 @@ function chicagoRP_NPCShop.PrettifyString(str)
     local upperstr = string.gsub(cachestr, "^%l", string.upper)
 
     return upperstr
-end
-
-function chicagoRP_NPCShop.PrettifyArcCWString(str)
-    if chicagoRP_NPCShop.isempty(str) then return nil end
-    local indexedstr = L[str]
-
-    if !chicagoRP_NPCShop.isempty(indexedstr) then
-        return indexedstr
-    end
-
-    return PrettifyString(str)
 end
 
 function chicagoRP_NPCShop.RemoveStrings(source, pretty) -- i'm not doing a full fucking table loop (nvm maybe i will)

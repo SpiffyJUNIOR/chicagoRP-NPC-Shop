@@ -207,6 +207,10 @@ function chicagoRP_NPCShop.GetCW2WeaponStats(wpnname, pretty)
         for _, v in ipairs(wpnparams) do
             local paramtbl = {name = v, stat = CW2StatString(v, wpntbl.[v])}
 
+            if v == "FireModes" then
+                paramtbl = {name = v, stat = ConvertFiremodeTable(wpntbl.FireModes)}
+            end
+
             table.insert(stattbl, paramtbl)
 
             continue
