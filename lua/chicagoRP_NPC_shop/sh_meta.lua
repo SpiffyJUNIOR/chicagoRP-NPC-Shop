@@ -1,6 +1,10 @@
-for _, v in ipairs(chicagoRP_NPCShop.categories) do -- hashtable index
-    for _, itemtbl in ipairs(chicagoRP_NPCShop.[v.name]) do
-        chicagoRP_NPCShop.iteminfo[itemtbl.ent] = itemtbl
+local categories = chicagoRP_NPCShop.categories
+
+for i = 1, #categories do -- hashtable index
+    local category = chicagoRP_NPCShop.[categories[i].name]
+
+    for i2 = 1, #category do
+        chicagoRP_NPCShop.iteminfo[category[i2].ent] = category[i2]
         -- chicagoRP_NPCShop.iteminfo[itemtbl.ent].ent = itemtbl.ent
         -- chicagoRP_NPCShop.iteminfo[itemtbl.ent].override = itemtbl.override or false
         -- chicagoRP_NPCShop.iteminfo[itemtbl.ent].price = itemtbl.price
