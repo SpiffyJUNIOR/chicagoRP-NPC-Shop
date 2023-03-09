@@ -8,7 +8,7 @@ ENT.AdminOnly = true
 ENT.AutomaticFrameAdvance = true
 
 function ENT:GetPrintName()
-	return SWEP.PrintName
+	return self.PrintName
 end
 
 function ENT:Think()

@@ -654,13 +654,13 @@ local function FancyModelPanel(parent, model, x, y, w, h, lightcolor)
     parentPanel:SetPos(x, y)
 
     function parentPanel:Paint(w, h)
-        -- surface.SetMaterial(nil) -- how do we get cubemap from map?
+        surface.SetMaterial(env_cubemap) -- how do we get cubemap from map?
         -- surface.DrawTexturedRectUV(x, y, w, h, 0, 0, 1, 1)
         surface.DrawTexturedRectRotated(x, y, w, h, 0) -- how do we make the cubemap rotate with model orientation?
         chicagoRP.BlurBackground(self)
     end
 
-    local modelPanel = vgui.Create("DAdjustableModelPanel", parentPanel)
+    local modelPanel = vgui.Create("DModelPanel", parentPanel)
     modelPanel:SetSize(w, h)
     modelPanel:SetPos(x, y)
     modelPanel:SetModel(model)
